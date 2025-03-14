@@ -1,21 +1,27 @@
 import React from 'react';
-import {Text} from 'ink';
 import Gradient from 'ink-gradient';
 import BigText from 'ink-big-text';
+import setup from './utils/setup.js';
+import {DatabaseSync} from 'node:sqlite';
+import IdEntry from './components/IdEntry.js';
+import {DatabaseProvider} from './context/DatabaseContext.js';
 
 type Props = {
-	name: string | undefined;
+	dbPath: string | undefined;
 };
 
-export default function App({name = 'Stranger'}: Props) {
+export default function App({dbPath = 'bricks.db'}: Props) {
+	const db = new DatabaseSync(dbPath);
+	setup(db);
+
 	return (
-		<>
-			<Gradient name="retro">
-				<BigText text="BRICK SORTER CLI" align="center" font="block" />
-			</Gradient>
-			<Text>
-				Hello, <Text color="green">{name}</Text>
-			</Text>
-		</>
+		<DatabaseProvider db={db}>
+			<>
+				<Gradient name="retro">
+					<BigText text="BRICK SORTER CLI" align="center" font="block" />
+				</Gradient>
+				<IdEntry />
+			</>
+		</DatabaseProvider>
 	);
 }

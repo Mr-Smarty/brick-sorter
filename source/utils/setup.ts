@@ -1,6 +1,6 @@
 import {DatabaseSync} from 'node:sqlite';
 
-export default function (db: DatabaseSync) {
+export function setup(db: DatabaseSync) {
 	db.exec(
 		`CREATE TABLE IF NOT EXISTS lego_sets (
             id INTEGER PRIMARY KEY,
@@ -24,3 +24,5 @@ export default function (db: DatabaseSync) {
         );`,
 	);
 }
+
+export default setup;

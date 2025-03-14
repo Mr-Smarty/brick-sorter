@@ -1,10 +1,8 @@
-#!/usr/bin/env node
+#!/usr/bin/env node --no-warnings
 import React from 'react';
 import {render} from 'ink';
 import meow from 'meow';
 import App from './app.js';
-import setup from './utils/setup.js';
-import {DatabaseSync} from 'node:sqlite';
 
 const cli = meow(
 	`
@@ -12,23 +10,19 @@ const cli = meow(
 	  $ brick-sorter-cli
 
 	Options
-		--name  Your name
+		--dbPath  Optional path to SQLite database file
 
 	Examples
-	  $ brick-sorter-cli --name=Jane
-	  Hello, Jane
+	  $ brick-sorter-cli --dbPath="C:/Users/JohnDoe/documents/bricks.db"
 `,
 	{
 		importMeta: import.meta,
 		flags: {
-			name: {
+			dbPath: {
 				type: 'string',
 			},
 		},
 	},
 );
 
-const db = new DatabaseSync('bricks.db');
-setup(db);
-
-render(<App name={cli.flags.name} />);
+render(<App dbPath={cli.flags.dbPath} />);
