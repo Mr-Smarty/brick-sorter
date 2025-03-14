@@ -4,13 +4,14 @@ import TextInput from 'ink-text-input';
 import {useDatabase} from '../context/DatabaseContext.js';
 import addSet from '../utils/addSet.js';
 import addPart from '../utils/addPart.js';
+import fixPriorities from '../utils/fixPriorities.js';
 
 interface FocusableTextInputProps {
 	value: string;
 	onChange: (value: string) => void;
 	placeholder: string;
 	focusKey: string;
-	error?: string;
+	width?: number;
 }
 
 const FocusableTextInput: React.FC<FocusableTextInputProps> = ({
@@ -18,12 +19,12 @@ const FocusableTextInput: React.FC<FocusableTextInputProps> = ({
 	onChange,
 	placeholder,
 	focusKey,
-	error,
+	width,
 }) => {
 	const {isFocused} = useFocus({id: focusKey});
 
 	return (
-		<Box flexDirection="column" flexGrow={1}>
+		<Box flexDirection="column" flexGrow={1} width={width}>
 			<TextInput
 				value={value}
 				onChange={onChange}
@@ -31,7 +32,6 @@ const FocusableTextInput: React.FC<FocusableTextInputProps> = ({
 				focus={isFocused}
 				showCursor={isFocused}
 			/>
-			<Box height={1}>{error && <Text color="red">{error}</Text>}</Box>
 		</Box>
 	);
 };
@@ -39,11 +39,15 @@ const FocusableTextInput: React.FC<FocusableTextInputProps> = ({
 export default function IdEntry() {
 	const db = useDatabase();
 	const [setId, setSetId] = useState('');
+	const [priority, setPriority] = useState(fixPriorities(db) + '');
 	const [partId, setPartId] = useState('');
 	const [error, setError] = useState('');
-	const [errorField, setErrorField] = useState<'setId' | 'partId' | ''>('');
+	const [errorField, setErrorField] = useState<
+		'setId' | 'partId' | 'priority' | ''
+	>('');
 	const {focusNext, focusPrevious} = useFocusManager();
 	const {isFocused: isSetIdFocused} = useFocus({id: 'setId'});
+	const {isFocused: isPriorityFocused} = useFocus({id: 'priority'});
 	const {isFocused: isPartIdFocused} = useFocus({id: 'partId'});
 
 	useInput((_input, key) => {
@@ -52,18 +56,20 @@ export default function IdEntry() {
 		} else if (key.upArrow) {
 			focusPrevious();
 		} else if (key.return) {
-			if (isSetIdFocused) {
+			if (isSetIdFocused || isPriorityFocused) {
 				try {
-					addSet(db, Number(setId));
+					addSet(db, Number(setId), undefined, Number(priority));
 					setSetId('');
+					setPriority(Number(priority) + 1 + '');
 					setErrorField('');
+					fixPriorities(db);
 				} catch (error) {
 					if (error instanceof Error) {
 						setError(error.message);
-						setErrorField('setId');
+						setErrorField(isSetIdFocused ? 'setId' : 'priority');
 					} else {
 						setError('An unknown error occurred');
-						setErrorField('setId');
+						setErrorField(isSetIdFocused ? 'setId' : 'priority');
 					}
 				}
 			} else if (isPartIdFocused) {
@@ -87,14 +93,33 @@ export default function IdEntry() {
 	return (
 		<Box flexDirection="column">
 			<Box>
-				<Text>Set Number: </Text>
-				<FocusableTextInput
-					value={setId}
-					onChange={setSetId}
-					placeholder="Enter set number"
-					focusKey="setId"
-					error={errorField === 'setId' ? error : undefined}
-				/>
+				<Box marginRight={2}>
+					<Text>Set Number: </Text>
+					<FocusableTextInput
+						value={setId}
+						onChange={setSetId}
+						placeholder="Enter set #"
+						focusKey="setId"
+						width={12}
+					/>
+				</Box>
+
+				<Box>
+					<Text>Priority: </Text>
+					<FocusableTextInput
+						value={priority}
+						onChange={setPriority}
+						placeholder="#"
+						focusKey="priority"
+						width={5}
+					/>
+				</Box>
+			</Box>
+
+			<Box height={1}>
+				{(errorField === 'setId' || errorField === 'priority') && error && (
+					<Text color="red">{error}</Text>
+				)}
 			</Box>
 
 			<Box height={1} />
@@ -104,10 +129,13 @@ export default function IdEntry() {
 				<FocusableTextInput
 					value={partId}
 					onChange={setPartId}
-					placeholder="Enter part number"
+					placeholder="Enter part #"
 					focusKey="partId"
-					error={errorField === 'partId' ? error : undefined}
 				/>
+			</Box>
+
+			<Box height={1}>
+				{errorField === 'partId' && error && <Text color="red">{error}</Text>}
 			</Box>
 		</Box>
 	);

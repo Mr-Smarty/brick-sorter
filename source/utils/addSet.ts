@@ -1,5 +1,6 @@
 import {DatabaseSync} from 'node:sqlite';
 import type {Set} from '../typings.js';
+import fixPriorities from './fixPriorities.js';
 
 /**
  * Adds a new LEGO set to the database with placeholder parts
@@ -13,12 +14,18 @@ export function addSet(
 	db: DatabaseSync,
 	setNumber: number,
 	name?: string,
-	priority: number = 100,
+	priority?: number,
 ): Set {
 	if (isNaN(setNumber)) throw new Error('Set number must be a number');
 	if (setNumber % 1 !== 0) throw new Error('Set number must be an integer');
 	if (setNumber <= 0) throw new Error('Set number must be a positive number');
-	if (priority <= 0) throw new Error('Priority must be greater than 0');
+
+	if (priority === undefined) priority = fixPriorities(db);
+	else {
+		if (isNaN(priority)) throw new Error('Priority must be a number');
+		if (priority % 1 !== 0) throw new Error('Priority must be an integer');
+		if (priority <= 0) throw new Error('Priority must be greater than 0');
+	}
 
 	// Check if set already exists
 	const existingSet = db
