@@ -5,6 +5,7 @@ import {useDatabase} from '../context/DatabaseContext.js';
 import addSet from '../utils/addSet.js';
 import addPart from '../utils/addPart.js';
 import fixPriorities from '../utils/fixPriorities.js';
+import Spinner from 'ink-spinner';
 
 interface FocusableTextInputProps {
 	value: string;
@@ -41,50 +42,65 @@ export default function IdEntry() {
 	const [setId, setSetId] = useState('');
 	const [priority, setPriority] = useState(fixPriorities(db) + '');
 	const [partId, setPartId] = useState('');
-	const [error, setError] = useState('');
-	const [errorField, setErrorField] = useState<
+	const [status, setStatus] = useState('');
+	const [statusField, setStatusField] = useState<
 		'setId' | 'partId' | 'priority' | ''
 	>('');
+	const [isLoading, setIsLoading] = useState(false);
 	const {focusNext, focusPrevious} = useFocusManager();
 	const {isFocused: isSetIdFocused} = useFocus({id: 'setId'});
 	const {isFocused: isPriorityFocused} = useFocus({id: 'priority'});
 	const {isFocused: isPartIdFocused} = useFocus({id: 'partId'});
 
 	useInput(async (_input, key) => {
+		if (isLoading) return;
+
 		if (key.downArrow) {
 			focusNext();
 		} else if (key.upArrow) {
 			focusPrevious();
 		} else if (key.return) {
 			if (isSetIdFocused || isPriorityFocused) {
+				setIsLoading(true);
+				setStatus('Processing...');
+				setStatusField('setId');
+
 				try {
 					await addSet(db, setId, Number(priority));
 					setSetId('');
 					setPriority(Number(priority) + 1 + '');
-					setErrorField('');
+					setStatus('Set added successfully');
 					fixPriorities(db);
 				} catch (error) {
 					if (error instanceof Error) {
-						setError(error.message);
-						setErrorField(isSetIdFocused ? 'setId' : 'priority');
+						setStatus(error.message);
+						setStatusField(isSetIdFocused ? 'setId' : 'priority');
 					} else {
-						setError('An unknown error occurred');
-						setErrorField(isSetIdFocused ? 'setId' : 'priority');
+						setStatus('An unknown error occurred');
+						setStatusField(isSetIdFocused ? 'setId' : 'priority');
 					}
+				} finally {
+					setIsLoading(false);
 				}
 			} else if (isPartIdFocused) {
+				setIsLoading(true);
+				setStatus('Processing...');
+				setStatusField('partId');
+
 				try {
-					addPart(db, partId);
+					await addPart(db, partId);
 					setPartId('');
-					setErrorField('');
+					setStatus('Part added successfully');
 				} catch (error) {
 					if (error instanceof Error) {
-						setError(error.message);
-						setErrorField('partId');
+						setStatus(error.message);
+						setStatusField('partId');
 					} else {
-						setError('An unknown error occurred');
-						setErrorField('partId');
+						setStatus('An unknown error occurred');
+						setStatusField('partId');
 					}
+				} finally {
+					setIsLoading(false);
 				}
 			}
 		}
@@ -117,8 +133,23 @@ export default function IdEntry() {
 			</Box>
 
 			<Box height={1}>
-				{(errorField === 'setId' || errorField === 'priority') && error && (
-					<Text color="red">{error}</Text>
+				{(statusField === 'setId' || statusField === 'priority') && status && (
+					<>
+						{isLoading ? (
+							<Text>
+								<Text>
+									<Spinner type="dots" />
+								</Text>
+								{' Loading...'}
+							</Text>
+						) : (
+							status && (
+								<Text color={status.includes('successfully') ? 'green' : 'red'}>
+									{status}
+								</Text>
+							)
+						)}
+					</>
 				)}
 			</Box>
 
@@ -135,7 +166,24 @@ export default function IdEntry() {
 			</Box>
 
 			<Box height={1}>
-				{errorField === 'partId' && error && <Text color="red">{error}</Text>}
+				{statusField === 'partId' && status && (
+					<>
+						{isLoading ? (
+							<Text>
+								<Text color="green">
+									<Spinner type="dots" />
+								</Text>
+								{' Loading...'}
+							</Text>
+						) : (
+							status && (
+								<Text color={status.includes('successfully') ? 'green' : 'red'}>
+									{status}
+								</Text>
+							)
+						)}
+					</>
+				)}
 			</Box>
 		</Box>
 	);

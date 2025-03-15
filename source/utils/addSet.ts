@@ -43,7 +43,8 @@ export async function addSet(
 	}
 	const set = await getSetDetails(setNumber, apiKey);
 	const parts = await getSetParts(setNumber, apiKey);
-	if (parts.length === 0) throw new Error(`No set found for set ${setNumber}`);
+	if (parts.length === 0)
+		throw new Error(`No parts found for set ${setNumber}`);
 
 	// Add the set to the database
 	db.prepare('INSERT INTO lego_sets (id, name, priority) VALUES (?, ?, ?)').run(
@@ -52,8 +53,8 @@ export async function addSet(
 		priority,
 	);
 
-	// Add placeholder parts and relationships to the set
-	for (const part of parts) {
+	// Add parts and relationships to the set
+	for (const part of parts.filter(part => !part.is_spare)) {
 		// First insert the part if it doesn't exist
 		db.prepare(
 			'INSERT OR IGNORE INTO parts (id, name, quantity) VALUES (?, ?, ?)',
