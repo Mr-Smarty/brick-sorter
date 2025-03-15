@@ -1,10 +1,11 @@
 export interface Part {
-	id: number;
+	id: string;
 	name: string;
 	quantity: number;
 }
 
 export interface Set {
-	id: number;
-	parts: Part[];
+	id: string;
+	name: string;
+	priority: number;
 }

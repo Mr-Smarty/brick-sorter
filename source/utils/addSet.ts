@@ -1,6 +1,10 @@
 import {DatabaseSync} from 'node:sqlite';
 import type {Set} from '../typings.js';
 import fixPriorities from './fixPriorities.js';
+import {config} from 'dotenv';
+import {getSetDetails, getSetParts} from './rebrickableApi.js';
+config({path: new URL('../../.env', import.meta.url)});
+const apiKey = process.env['REBRICKABLE_API_KEY'];
 
 /**
  * Adds a new LEGO set to the database with placeholder parts
@@ -10,15 +14,12 @@ import fixPriorities from './fixPriorities.js';
  * @param priority Priority of the set (lower numbers are higher priority)
  * @returns The created set object
  */
-export function addSet(
+export async function addSet(
 	db: DatabaseSync,
-	setNumber: number,
-	name?: string,
+	setNumber: string,
 	priority?: number,
-): Set {
-	if (isNaN(setNumber)) throw new Error('Set number must be a number');
-	if (setNumber % 1 !== 0) throw new Error('Set number must be an integer');
-	if (setNumber <= 0) throw new Error('Set number must be a positive number');
+): Promise<Set> {
+	if (!/\d+(-\d)?/.test(setNumber)) throw new Error('Invalid set number');
 
 	if (priority === undefined) priority = fixPriorities(db);
 	else {
@@ -36,37 +37,39 @@ export function addSet(
 		throw new Error(`Set ${setNumber} already exists in the database`);
 	}
 
+	// Fetch parts from Rebrickable API
+	if (!apiKey) {
+		throw new Error('REBRICKABLE_API_KEY environment variable is not set');
+	}
+	const set = await getSetDetails(setNumber, apiKey);
+	const parts = await getSetParts(setNumber, apiKey);
+	if (parts.length === 0) throw new Error(`No set found for set ${setNumber}`);
+
 	// Add the set to the database
 	db.prepare('INSERT INTO lego_sets (id, name, priority) VALUES (?, ?, ?)').run(
 		setNumber,
-		name || `Set ${setNumber}`,
+		set.name || `Set ${setNumber}`,
 		priority,
 	);
 
-	// Create placeholder parts for demonstration
-	const placeholderParts = [
-		{id: 1, name: 'Placeholder Part 1', quantity: 5},
-		{id: 2, name: 'Placeholder Part 2', quantity: 3},
-		{id: 3, name: 'Placeholder Part 3', quantity: 2},
-	];
-
 	// Add placeholder parts and relationships to the set
-	for (const part of placeholderParts) {
+	for (const part of parts) {
 		// First insert the part if it doesn't exist
 		db.prepare(
 			'INSERT OR IGNORE INTO parts (id, name, quantity) VALUES (?, ?, ?)',
-		).run(part.id, part.name, part.quantity);
+		).run(part.element_id, part.part.name, 0);
 
 		// Then create the relationship between the set and part
 		db.prepare(
 			'INSERT INTO lego_set_parts (lego_set_id, part_id, quantity_needed) VALUES (?, ?, ?)',
-		).run(setNumber, part.id, part.quantity);
+		).run(setNumber, part.element_id, part.quantity);
 	}
 
-	// Return the created set with its parts
+	// Return the created set
 	return {
 		id: setNumber,
-		parts: placeholderParts,
+		name: set.name || `Set ${setNumber}`,
+		priority: priority,
 	};
 }
 

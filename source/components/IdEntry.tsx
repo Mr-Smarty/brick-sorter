@@ -50,7 +50,7 @@ export default function IdEntry() {
 	const {isFocused: isPriorityFocused} = useFocus({id: 'priority'});
 	const {isFocused: isPartIdFocused} = useFocus({id: 'partId'});
 
-	useInput((_input, key) => {
+	useInput(async (_input, key) => {
 		if (key.downArrow) {
 			focusNext();
 		} else if (key.upArrow) {
@@ -58,7 +58,7 @@ export default function IdEntry() {
 		} else if (key.return) {
 			if (isSetIdFocused || isPriorityFocused) {
 				try {
-					addSet(db, Number(setId), undefined, Number(priority));
+					await addSet(db, setId, Number(priority));
 					setSetId('');
 					setPriority(Number(priority) + 1 + '');
 					setErrorField('');
@@ -74,7 +74,7 @@ export default function IdEntry() {
 				}
 			} else if (isPartIdFocused) {
 				try {
-					addPart(db, Number(setId));
+					addPart(db, partId);
 					setPartId('');
 					setErrorField('');
 				} catch (error) {
