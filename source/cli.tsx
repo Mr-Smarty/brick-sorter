@@ -1,8 +1,8 @@
 #!/usr/bin/env node --no-warnings
 import React from 'react';
-import {render} from 'ink';
 import meow from 'meow';
 import App from './app.js';
+import {withFullScreen} from 'fullscreen-ink';
 
 const cli = meow(
 	`
@@ -25,4 +25,4 @@ const cli = meow(
 	},
 );
 
-render(<App dbPath={cli.flags.dbPath} />);
+withFullScreen(<App dbPath={cli.flags.dbPath} />).start();
