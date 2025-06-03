@@ -16,8 +16,13 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 
 	return (
 		<DatabaseProvider db={db}>
-			<Box flexDirection="column">
-				<BigTextFlex text="Brick Sorter" font="block" gradient="retro" />
+			<Box flexDirection="column" width="100%" height="100%">
+				<BigTextFlex
+					text="Brick Sorter"
+					font="block"
+					gradient="retro"
+					align="center"
+				/>
 				<IdEntry />
 			</Box>
 		</DatabaseProvider>
