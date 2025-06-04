@@ -1,5 +1,5 @@
 import React from 'react';
-import BigTextFlex from './components/BigTextTitle.js';
+import BigTextFlex from './components/BigTextFlex.js';
 import setup from './utils/setup.js';
 import {DatabaseSync} from 'node:sqlite';
 import IdEntry from './components/IdEntry.js';

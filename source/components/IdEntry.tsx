@@ -42,15 +42,17 @@ export default function IdEntry() {
 	const [setId, setSetId] = useState('');
 	const [priority, setPriority] = useState(fixPriorities(db) + '');
 	const [partId, setPartId] = useState('');
+	const [quantity, setQuantity] = useState('1');
 	const [status, setStatus] = useState('');
 	const [statusField, setStatusField] = useState<
-		'setId' | 'partId' | 'priority' | ''
+		'setId' | 'partId' | 'priority' | 'quantity' | ''
 	>('');
 	const [isLoading, setIsLoading] = useState(false);
 	const {focusNext, focusPrevious} = useFocusManager();
 	const {isFocused: isSetIdFocused} = useFocus({id: 'setId'});
 	const {isFocused: isPriorityFocused} = useFocus({id: 'priority'});
 	const {isFocused: isPartIdFocused} = useFocus({id: 'partId'});
+	const {isFocused: isQuantityFocused} = useFocus({id: 'quantity'});
 
 	useInput(async (_input, key) => {
 		if (isLoading) return;
@@ -82,22 +84,23 @@ export default function IdEntry() {
 				} finally {
 					setIsLoading(false);
 				}
-			} else if (isPartIdFocused) {
+			} else if (isPartIdFocused || isQuantityFocused) {
 				setIsLoading(true);
 				setStatus('Processing...');
 				setStatusField('partId');
 
 				try {
-					await addPart(db, partId);
+					await addPart(db, partId, Number(quantity));
 					setPartId('');
+					setQuantity('1');
 					setStatus('Part added successfully');
 				} catch (error) {
 					if (error instanceof Error) {
 						setStatus(error.message);
-						setStatusField('partId');
+						setStatusField(isPartIdFocused ? 'partId' : 'quantity');
 					} else {
 						setStatus('An unknown error occurred');
-						setStatusField('partId');
+						setStatusField(isPartIdFocused ? 'partId' : 'quantity');
 					}
 				} finally {
 					setIsLoading(false);
@@ -156,17 +159,30 @@ export default function IdEntry() {
 			<Box height={1} />
 
 			<Box>
-				<Text>Part Number: </Text>
-				<FocusableTextInput
-					value={partId}
-					onChange={setPartId}
-					placeholder="Enter part #"
-					focusKey="partId"
-				/>
+				<Box marginRight={2}>
+					<Text>Part Number: </Text>
+					<FocusableTextInput
+						value={partId}
+						onChange={setPartId}
+						placeholder="Enter part #"
+						focusKey="partId"
+					/>
+				</Box>
+
+				<Box>
+					<Text>Quantity: </Text>
+					<FocusableTextInput
+						value={quantity}
+						onChange={setQuantity}
+						placeholder="1"
+						focusKey="quantity"
+						width={5}
+					/>
+				</Box>
 			</Box>
 
 			<Box height={1}>
-				{statusField === 'partId' && status && (
+				{(statusField === 'partId' || statusField === 'quantity') && status && (
 					<>
 						{isLoading ? (
 							<Text>

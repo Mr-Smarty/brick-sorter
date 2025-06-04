@@ -18,6 +18,7 @@ export function setup(db: DatabaseSync) {
             lego_set_id STRING NOT NULL,
             part_id STRING NOT NULL,
             quantity_needed INTEGER NOT NULL,
+            quantity_allocated INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (lego_set_id) REFERENCES lego_sets(id),
             FOREIGN KEY (part_id) REFERENCES parts(id),
             PRIMARY KEY (lego_set_id, part_id)
