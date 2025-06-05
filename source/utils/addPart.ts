@@ -5,6 +5,7 @@ export async function addPart(
 	db: DatabaseSync,
 	partNumber: string,
 	quantity: number = 1,
+	setId?: string,
 ): Promise<Array<{setId: string; setName: string; allocated: number}>> {
 	if (!/\d+/.test(partNumber)) throw new Error('Invalid part number');
 
@@ -23,6 +24,75 @@ export async function addPart(
 		);
 	}
 
+	// If setId is provided, allocate directly to that set
+	if (setId) {
+		if (!/\d+(-\d)?/.test(setId)) throw new Error('Invalid set number');
+
+		// Check if set exists
+		const existingSet = db
+			.prepare('SELECT id, name FROM lego_sets WHERE id = ?')
+			.get(setId) as {id: string; name: string} | undefined;
+
+		if (!existingSet) {
+			throw new Error(`Set ${setId} not found in database. Add the set first.`);
+		}
+
+		// Check if this set actually uses this part
+		const setPartRelation = db
+			.prepare(
+				`SELECT quantity_needed, COALESCE(quantity_allocated, 0) as allocated
+                 FROM lego_set_parts 
+                 WHERE lego_set_id = ? AND part_id = ?`,
+			)
+			.get(setId, partNumber) as
+			| {quantity_needed: number; allocated: number}
+			| undefined;
+
+		if (!setPartRelation) {
+			throw new Error(`Part ${partNumber} is not used in set ${setId}.`);
+		}
+
+		const stillNeeded =
+			setPartRelation.quantity_needed - setPartRelation.allocated;
+		if (stillNeeded <= 0) {
+			throw new Error(`Set ${setId} already has enough of part ${partNumber}.`);
+		}
+
+		// Begin transaction
+		db.exec('BEGIN TRANSACTION');
+
+		try {
+			const toAllocate = Math.min(quantity, stillNeeded);
+
+			// Update the allocated quantity for this set-part relationship
+			db.prepare(
+				`UPDATE lego_set_parts 
+                 SET quantity_allocated = quantity_allocated + ?
+                 WHERE lego_set_id = ? AND part_id = ?`,
+			).run(toAllocate, setId, partNumber);
+
+			// Update global part inventory
+			db.prepare('UPDATE parts SET quantity = quantity + ? WHERE id = ?').run(
+				toAllocate,
+				partNumber,
+			);
+
+			db.exec('COMMIT');
+
+			return [
+				{
+					setId: setId,
+					setName: existingSet.name,
+					allocated: toAllocate,
+				},
+			];
+		} catch (error) {
+			db.exec('ROLLBACK');
+			throw error;
+		}
+	}
+
+	// priority-based allocation logic
 	// Begin transaction for atomicity
 	db.exec('BEGIN TRANSACTION');
 

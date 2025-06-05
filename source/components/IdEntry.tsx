@@ -98,11 +98,21 @@ export default function IdEntry({onAllocationUpdate}: IdEntryProps) {
 				setStatusField('partId');
 
 				try {
-					const allocationResult = await addPart(db, partId, Number(quantity));
+					const allocationResult = await addPart(
+						db,
+						partId,
+						Number(quantity),
+						setId || undefined,
+					);
 					onAllocationUpdate(allocationResult, partId);
 					setPartId('');
 					setQuantity('1');
-					setStatus('Part added successfully');
+					if (setId) {
+						setSetId('');
+						setStatus(`Part added to set ${setId} successfully`);
+					} else {
+						setStatus('Part added successfully');
+					}
 				} catch (error) {
 					if (error instanceof Error) {
 						setStatus(error.message);
@@ -175,6 +185,7 @@ export default function IdEntry({onAllocationUpdate}: IdEntryProps) {
 						onChange={setPartId}
 						placeholder="Enter part #"
 						focusKey="partId"
+						width={12}
 					/>
 				</Box>
 
@@ -210,6 +221,14 @@ export default function IdEntry({onAllocationUpdate}: IdEntryProps) {
 					</>
 				)}
 			</Box>
+
+			{setId && partId && (isPartIdFocused || isQuantityFocused) && (
+				<Box marginTop={1}>
+					<Text dimColor>
+						Both set and part entered - will add part directly to set {setId}
+					</Text>
+				</Box>
+			)}
 		</Box>
 	);
 }
