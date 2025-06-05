@@ -37,7 +37,14 @@ const FocusableTextInput: React.FC<FocusableTextInputProps> = ({
 	);
 };
 
-export default function IdEntry() {
+interface IdEntryProps {
+	onAllocationUpdate: (
+		allocations: Array<{setId: string; setName: string; allocated: number}>,
+		partId: string,
+	) => void;
+}
+
+export default function IdEntry({onAllocationUpdate}: IdEntryProps) {
 	const db = useDatabase();
 	const [setId, setSetId] = useState('');
 	const [priority, setPriority] = useState(fixPriorities(db) + '');
@@ -48,6 +55,7 @@ export default function IdEntry() {
 		'setId' | 'partId' | 'priority' | 'quantity' | ''
 	>('');
 	const [isLoading, setIsLoading] = useState(false);
+
 	const {focusNext, focusPrevious} = useFocusManager();
 	const {isFocused: isSetIdFocused} = useFocus({id: 'setId'});
 	const {isFocused: isPriorityFocused} = useFocus({id: 'priority'});
@@ -90,7 +98,8 @@ export default function IdEntry() {
 				setStatusField('partId');
 
 				try {
-					await addPart(db, partId, Number(quantity));
+					const allocationResult = await addPart(db, partId, Number(quantity));
+					onAllocationUpdate(allocationResult, partId);
 					setPartId('');
 					setQuantity('1');
 					setStatus('Part added successfully');
@@ -110,7 +119,7 @@ export default function IdEntry() {
 	});
 
 	return (
-		<Box flexDirection="column">
+		<Box flexDirection="column" flexGrow={1}>
 			<Box>
 				<Box marginRight={2}>
 					<Text>Set Number: </Text>
