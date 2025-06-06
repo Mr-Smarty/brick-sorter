@@ -10,7 +10,9 @@
 	"scripts": {
 		"build": "tsc",
 		"dev": "tsc --watch",
-		"test": "prettier --check . && xo && ava"
+		"test": "prettier --check . && xo && ava",
+		"install:physical": "npm install --no-optional && npm install node-webcam",
+		"install:opencv": "npm install"
 	},
 	"files": [
 		"dist"
@@ -27,8 +29,13 @@
 		"meow": "^11.0.0",
 		"react": "^18.2.0"
 	},
+	"optionalDependencies": {
+		"@u4/opencv4nodejs": "^7.1.2",
+		"camera": "^2.0.0"
+	},
 	"devDependencies": {
 		"@sindresorhus/tsconfig": "^3.0.1",
+		"@types/node-webcam": "^0.8.3",
 		"@types/react": "^18.0.32",
 		"@vdemedes/prettier-config": "^2.0.1",
 		"ava": "^5.2.0",
