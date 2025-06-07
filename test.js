@@ -1,36 +1,45 @@
-import NodeWebcam from 'node-webcam';
+// import {recognizePart, getBestMatch} from './dist/utils/brickognizeApi.js';
+// import fs from 'fs';
 
-// var opts = {
-// 	width: 1920,
-// 	height: 1080,
-// 	output: 'jpeg',
-// 	callbackReturn: 'location',
-// 	frames: 1,
-// 	saveShots: true,
-// };
+// // Test just the API with an existing image
+// async function testAPIOnly(imagePath) {
+// 	if (!fs.existsSync(imagePath)) {
+// 		console.error('Image file not found:', imagePath);
+// 		return;
+// 	}
 
-// var Webcam = NodeWebcam.create(opts);
+// 	try {
+// 		console.log('Testing API with existing image:', imagePath);
+// 		const results = await recognizePart(imagePath);
 
-// Webcam.list(function (list) {
-// 	//Use another device
+// 		console.log('Raw API Response:');
+// 		console.log(JSON.stringify(results, null, 2));
 
-// 	console.log('Available devices:', list);
-// });
+// 		const bestMatch = getBestMatch(results); // Very low threshold for testing
 
-// NodeWebcam.capture('my_picture', {}, function (err, data) {
-// 	if (!err) console.log('Image created!');
-// });
+// 		if (bestMatch) {
+// 			console.log('\nBest Match:');
+// 			console.log(`Part: ${bestMatch.partNumber}`);
+// 			console.log(`Name: ${bestMatch.name}`);
+// 			console.log(`Score: ${bestMatch.score}`);
+// 		} else {
+// 			console.log('No matches found');
+// 		}
+// 	} catch (error) {
+// 		console.error('API test failed:', error);
+// 	}
+// }
+
+// // Run test
+// const imagePath = 'test.jpg';
+// testAPIOnly(imagePath);
 
 import fs from 'fs';
-import camera from 'camera';
-
-const webcam = camera.createStream();
-
-webcam.on('error', err => {
-	console.log('error reading data', err);
-});
-
-webcam.on('data', buffer => {
-	fs.writeFileSync('cam.png', buffer);
-	webcam.destroy();
+import {captureImage} from './dist/utils/camera.js';
+captureImage().then(image => {
+	console.log('Image captured successfully');
+	// You can save the image or process it further
+	// For example, to save it to a file:
+	fs.writeFileSync('captured_image.png', image);
+	console.log('Image saved as captured_image.png');
 });

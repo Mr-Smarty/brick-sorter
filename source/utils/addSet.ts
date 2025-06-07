@@ -1,5 +1,5 @@
 import {DatabaseSync} from 'node:sqlite';
-import type {Set} from '../typings.js';
+import type {Set} from '../types/typings.js';
 import fixPriorities from './fixPriorities.js';
 import {config} from 'dotenv';
 import {getSetDetails, getSetParts} from './rebrickableApi.js';

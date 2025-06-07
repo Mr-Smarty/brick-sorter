@@ -1,5 +1,5 @@
 import {DatabaseSync} from 'node:sqlite';
-import {Part} from '../typings.js';
+import {Part} from '../types/typings.js';
 
 export async function addPart(
 	db: DatabaseSync,
