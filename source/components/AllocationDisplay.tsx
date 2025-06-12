@@ -16,7 +16,7 @@ export default function AllocationDisplay({
 	allocations,
 	partId,
 }: AllocationDisplayProps) {
-	if (allocations.length === 0) {
+	if (!allocations.length) {
 		return (
 			<Box flexDirection="column" paddingLeft={4} minWidth={40}>
 				<Text bold>Part Allocation</Text>

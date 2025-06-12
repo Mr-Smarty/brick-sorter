@@ -181,7 +181,7 @@ export async function addPart(
 		);
 
 		// If no parts were allocated, throw an error
-		if (totalAllocated === 0) {
+		if (!totalAllocated) {
 			throw new Error(
 				`Part ${partNumber} is not needed for any sets. ${remainingQuantity} parts not added.`,
 			);

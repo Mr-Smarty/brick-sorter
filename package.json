@@ -18,6 +18,7 @@
 		"dist"
 	],
 	"dependencies": {
+		"@rebrickableapi/fetch": "^0.0.12",
 		"axios": "^1.8.3",
 		"dotenv": "^16.4.7",
 		"fullscreen-ink": "^0.0.2",

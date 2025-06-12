@@ -1,6 +1,5 @@
 import axios from 'axios';
 import FormData from 'form-data';
-import {readFileSync} from 'fs';
 import {config} from 'dotenv';
 config({path: new URL('../../.env', import.meta.url)});
 
@@ -33,15 +32,14 @@ interface BrickognizeResponse {
 }
 
 /**
- * Recognizes LEGO parts from an image using the Brickognize API
- * @param imagePath Path to the image file
+ * Recognizes LEGO parts from an image buffer using the Brickognize API
+ * @param imageBuffer Image data as a Buffer
  * @returns Promise resolving to recognition results
  */
 export async function recognizePart(
-	imagePath: string,
+	imageBuffer: Buffer,
 ): Promise<BrickognizeResponse> {
 	const formData = new FormData();
-	const imageBuffer = readFileSync(imagePath);
 	formData.append('query_image', imageBuffer, {
 		filename: 'image.jpg',
 		contentType: 'image/jpeg',
@@ -80,8 +78,6 @@ export function getBestMatch(
 	results: BrickognizeResponse,
 	minScore: number = CERTAINTY_THRESHOLD,
 ): BrickognizeItem | null {
-	console.log(minScore);
-
 	if (!results.items || !results.items[0]) {
 		return null;
 	}
@@ -104,7 +100,7 @@ export function getAllMatches(
 	results: BrickognizeResponse,
 	minScore: number = 0,
 ): Array<BrickognizeItem> {
-	if (!results.items || results.items.length === 0) {
+	if (!results.items || !results.items.length) {
 		return [];
 	}
 

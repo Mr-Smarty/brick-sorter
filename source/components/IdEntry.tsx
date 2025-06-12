@@ -1,11 +1,15 @@
-import React, {useState} from 'react';
+import React, {useState, useRef} from 'react';
 import {Text, Box, useFocus, useFocusManager, useInput} from 'ink';
 import TextInput from 'ink-text-input';
 import {useDatabase} from '../context/DatabaseContext.js';
 import addSet from '../utils/addSet.js';
 import addPart from '../utils/addPart.js';
 import fixPriorities from '../utils/fixPriorities.js';
+import CameraCapture from './CameraCapture.js';
 import Spinner from 'ink-spinner';
+import type {InventoryPart} from '@rebrickableapi/types/data/inventory-part';
+import {Set} from '@rebrickableapi/types/data/set';
+import ElementSelector, {ElementSelectionNeeded} from './ElementSelector.js';
 
 interface FocusableTextInputProps {
 	value: string;
@@ -44,7 +48,9 @@ interface IdEntryProps {
 	) => void;
 }
 
-export default function IdEntry({onAllocationUpdate}: IdEntryProps) {
+export default function IdEntry({
+	onAllocationUpdate,
+}: IdEntryProps): JSX.Element {
 	const db = useDatabase();
 	const [setId, setSetId] = useState('');
 	const [priority, setPriority] = useState(fixPriorities(db) + '');
@@ -55,6 +61,20 @@ export default function IdEntry({onAllocationUpdate}: IdEntryProps) {
 		'setId' | 'partId' | 'priority' | 'quantity' | ''
 	>('');
 	const [isLoading, setIsLoading] = useState(false);
+	const [recognitionConfidence, setRecognitionConfidence] = useState(0);
+	const [isColorSelectionActive, setIsColorSelectionActive] = useState(false);
+	const [elementSelectionData, setElementSelectionData] = useState<{
+		part: InventoryPart;
+		set: Set;
+		timelyElements: string[];
+		elements: string[];
+	} | null>(null);
+	const [resolvedParts, setResolvedParts] = useState<
+		Record<string, string | null>
+	>({});
+
+	const partsCache = useRef<InventoryPart[]>(undefined);
+	const setCache = useRef<Set>(undefined);
 
 	const {focusNext, focusPrevious} = useFocusManager();
 	const {isFocused: isSetIdFocused} = useFocus({id: 'setId'});
@@ -62,8 +82,143 @@ export default function IdEntry({onAllocationUpdate}: IdEntryProps) {
 	const {isFocused: isPartIdFocused} = useFocus({id: 'partId'});
 	const {isFocused: isQuantityFocused} = useFocus({id: 'quantity'});
 
+	const handlePartRecognized = (
+		elementId: string,
+		partName: string,
+		confidence: number,
+	) => {
+		setPartId(elementId);
+		setRecognitionConfidence(confidence);
+		setStatus(`Selected: ${partName}`);
+	};
+
+	const handleColorSelectionChange = (isActive: boolean) => {
+		setIsColorSelectionActive(isActive);
+	};
+
+	const handleElementSelect = async (elementId: string) => {
+		if (elementSelectionData) {
+			const newResolved = {
+				...resolvedParts,
+				[elementSelectionData.part.part.part_num]: elementId,
+			};
+			setResolvedParts(newResolved);
+			try {
+				setIsLoading(true);
+				setStatus('Adding set with selected element...');
+
+				// Update the part's element_id and continue with set addition
+				const updatedPart = {
+					...elementSelectionData.part,
+					element_id: elementId,
+				};
+
+				// Continue the addSet process with the selected element
+				await addSet(
+					db,
+					setId,
+					Number(priority),
+					elementId,
+					updatedPart,
+					newResolved,
+					partsCache,
+					setCache,
+				);
+
+				setSetId('');
+				setResolvedParts({});
+				setElementSelectionData(null);
+				setPriority(Number(priority) + 1 + '');
+				setStatus('Set added successfully');
+				fixPriorities(db);
+				partsCache.current = undefined;
+				setCache.current = undefined;
+			} catch (error) {
+				if (error instanceof ElementSelectionNeeded) {
+					setElementSelectionData({
+						part: error.data.part,
+						set: error.data.set,
+						timelyElements: error.data.timelyElements,
+						elements: error.data.elements,
+					});
+					setIsLoading(false);
+					return;
+				}
+				if (error instanceof Error) {
+					setStatus(error.message);
+				} else {
+					setStatus('An unknown error occurred');
+				}
+				setElementSelectionData(null);
+			} finally {
+				setIsLoading(false);
+			}
+		}
+	};
+
+	const handleElementSkip = async () => {
+		if (elementSelectionData) {
+			const newResolved = {
+				...resolvedParts,
+				[elementSelectionData.part.part.part_num]: '',
+			};
+			setResolvedParts(newResolved);
+			try {
+				setIsLoading(true);
+				setStatus('Skipping element and continuing...');
+				await addSet(
+					db,
+					setId,
+					Number(priority),
+					'SKIP',
+					elementSelectionData.part,
+					newResolved,
+					partsCache,
+					setCache,
+				);
+
+				setSetId('');
+				setResolvedParts({});
+				setElementSelectionData(null);
+				setPriority(Number(priority) + 1 + '');
+				setStatus('Set added successfully (some parts skipped)');
+				fixPriorities(db);
+				partsCache.current = undefined;
+				setCache.current = undefined;
+			} catch (error) {
+				if (error instanceof ElementSelectionNeeded) {
+					setElementSelectionData({
+						part: error.data.part,
+						set: error.data.set,
+						timelyElements: error.data.timelyElements,
+						elements: error.data.elements,
+					});
+					setIsLoading(false);
+					return;
+				}
+				if (error instanceof Error) {
+					setStatus(error.message);
+				} else {
+					setStatus('An unknown error occurred');
+				}
+				setElementSelectionData(null);
+			} finally {
+				setIsLoading(false);
+			}
+		}
+	};
+
+	const handleElementCancel = () => {
+		setElementSelectionData(null);
+		setResolvedParts({});
+		setStatus('Set addition cancelled');
+		setIsLoading(false);
+		partsCache.current = undefined;
+		setCache.current = undefined;
+	};
+
 	useInput(async (_input, key) => {
-		if (isLoading) return;
+		if (isLoading || isColorSelectionActive || elementSelectionData) return;
 
 		if (key.downArrow) {
 			focusNext();
@@ -76,13 +231,35 @@ export default function IdEntry({onAllocationUpdate}: IdEntryProps) {
 				setStatusField('setId');
 
 				try {
-					await addSet(db, setId, Number(priority));
+					await addSet(
+						db,
+						setId,
+						Number(priority),
+						undefined,
+						undefined,
+						resolvedParts,
+						partsCache,
+						setCache,
+					);
+
 					setSetId('');
+					setResolvedParts({});
 					setPriority(Number(priority) + 1 + '');
 					setStatus('Set added successfully');
 					fixPriorities(db);
+					partsCache.current = undefined;
+					setCache.current = undefined;
 				} catch (error) {
-					if (error instanceof Error) {
+					if (error instanceof ElementSelectionNeeded) {
+						setElementSelectionData({
+							part: error.data.part,
+							set: error.data.set,
+							timelyElements: error.data.timelyElements,
+							elements: error.data.elements,
+						});
+						setIsLoading(false);
+						return;
+					} else if (error instanceof Error) {
 						setStatus(error.message);
 						setStatusField(isSetIdFocused ? 'setId' : 'priority');
 					} else {
@@ -107,6 +284,7 @@ export default function IdEntry({onAllocationUpdate}: IdEntryProps) {
 					onAllocationUpdate(allocationResult, partId);
 					setPartId('');
 					setQuantity('1');
+					setRecognitionConfidence(0);
 					if (setId) {
 						setSetId('');
 						setStatus(`Part added to set ${setId} successfully`);
@@ -127,6 +305,17 @@ export default function IdEntry({onAllocationUpdate}: IdEntryProps) {
 			}
 		}
 	});
+
+	if (elementSelectionData) {
+		return (
+			<ElementSelector
+				data={elementSelectionData}
+				onSelect={handleElementSelect}
+				onSkip={handleElementSkip}
+				onCancel={handleElementCancel}
+			/>
+		);
+	}
 
 	return (
 		<Box flexDirection="column" flexGrow={1}>
@@ -201,6 +390,14 @@ export default function IdEntry({onAllocationUpdate}: IdEntryProps) {
 				</Box>
 			</Box>
 
+			{recognitionConfidence > 0 && (
+				<Box marginTop={1}>
+					<Text dimColor>
+						Recognition confidence: {Math.round(recognitionConfidence * 100)}%
+					</Text>
+				</Box>
+			)}
+
 			<Box height={1}>
 				{(statusField === 'partId' || statusField === 'quantity') && status && (
 					<>
@@ -222,13 +419,30 @@ export default function IdEntry({onAllocationUpdate}: IdEntryProps) {
 				)}
 			</Box>
 
-			{setId && partId && (isPartIdFocused || isQuantityFocused) && (
-				<Box marginTop={1}>
-					<Text dimColor>
-						Both set and part entered - will add part directly to set {setId}
-					</Text>
-				</Box>
-			)}
+			{setId &&
+				partId &&
+				(isPartIdFocused || isQuantityFocused) &&
+				!isColorSelectionActive && (
+					<Box marginTop={1}>
+						<Text dimColor>
+							Both set and part entered - will add part directly to set {setId}
+						</Text>
+					</Box>
+				)}
+
+			<CameraCapture
+				onPartRecognized={handlePartRecognized}
+				onColorSelectionChange={handleColorSelectionChange}
+				isEnabled={!isLoading && !isColorSelectionActive}
+			/>
+
+			<Box marginTop={1}>
+				<Text dimColor>
+					{isColorSelectionActive
+						? 'Color selection active - other inputs disabled'
+						: 'Use arrow keys to navigate • Enter to submit'}
+				</Text>
+			</Box>
 		</Box>
 	);
 }

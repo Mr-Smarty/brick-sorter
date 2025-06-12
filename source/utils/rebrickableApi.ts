@@ -1,37 +1,12 @@
-import axios from 'axios';
+import {config} from 'dotenv';
+import {fetchRebrickableAPI, RebrickableAPIError} from '@rebrickableapi/fetch';
+import type {InventoryPart} from '@rebrickableapi/types/data/inventory-part';
+import type {Set} from '@rebrickableapi/types/data/set';
+import type {PartColor, PartColorElements} from '../types/typings.js';
+import {DetailedPart} from '@rebrickableapi/types/data/part';
 
-interface RebrickablePartResponse {
-	count: number;
-	next: string | null;
-	previous: string | null;
-	results: RebrickablePart[];
-}
-
-interface RebrickablePart {
-	id: number;
-	inv_part_id: number;
-	part: {
-		part_num: string;
-		name: string;
-		part_cat_id: number;
-		part_url: string;
-		part_img_url: string;
-		external_ids: Record<string, string[]>;
-		print_of: number | null;
-	};
-	color: {
-		id: number;
-		name: string;
-		rgb: string;
-		is_trans: boolean;
-		external_ids: Record<string, {ext_ids: number[]; ext_descrs: string[][]}>;
-	};
-	set_num: string;
-	quantity: number;
-	is_spare: boolean;
-	element_id: string;
-	num_sets: number;
-}
+config({path: new URL('../../.env', import.meta.url)});
+const REBRICKABLE_API_KEY = process.env['REBRICKABLE_API_KEY'];
 
 /**
  * Fetches all parts for a given LEGO set number from the Rebrickable API
@@ -39,55 +14,29 @@ interface RebrickablePart {
  * @param apiKey Your Rebrickable API key
  * @returns Promise resolving to an array of parts
  */
-export async function getSetParts(
-	setNumber: string,
-	apiKey: string,
-): Promise<RebrickablePart[]> {
-	if (!apiKey) {
+export async function getSetParts(setNumber: string): Promise<InventoryPart[]> {
+	if (!REBRICKABLE_API_KEY) {
 		throw new Error('Rebrickable API key is required');
 	}
 
-	const baseUrl = 'https://rebrickable.com/api/v3/lego';
-	const allParts: RebrickablePart[] = [];
-	let nextUrl: string | null = `${baseUrl}/sets/${setNumber}/parts/?page=1`;
+	const allParts: InventoryPart[] = [];
+	let nextUrl = `/api/v3/lego/sets/${setNumber}/parts/?page=1` as const;
 
 	while (nextUrl) {
 		try {
-			const response: {data: RebrickablePartResponse} =
-				await axios.get<RebrickablePartResponse>(nextUrl, {
-					headers: {
-						Authorization: `key ${apiKey}`,
-						Accept: 'application/json',
-					},
-				});
-
-			allParts.push(...response.data.results);
-			nextUrl = response.data.next;
+			const response = await fetchRebrickableAPI(nextUrl, {
+				key: REBRICKABLE_API_KEY,
+			});
+			allParts.push(...response.results);
+			nextUrl = response.next as typeof nextUrl;
 		} catch (error) {
-			if (axios.isAxiosError(error)) {
-				if (error.response?.status === 404) {
-					throw new Error(`Set ${setNumber} not found`);
-				}
-				throw new Error(
-					`API error: ${error.response?.status} ${error.response?.statusText}`,
-				);
-			}
-			throw error;
+			throw handleError(error, [
+				{status: 404, text: `Set ${setNumber} not found`},
+			]);
 		}
 	}
 
 	return allParts;
-}
-
-interface SetDetails {
-	set_num: string;
-	name: string;
-	year: number;
-	theme_id: number;
-	num_parts: number;
-	set_img_url: string;
-	set_url: string;
-	last_modified_dt: string;
 }
 
 /**
@@ -96,37 +45,136 @@ interface SetDetails {
  * @param apiKey Your Rebrickable API key
  * @returns Promise resolving to the set name
  */
-export async function getSetDetails(
-	setNumber: string,
-	apiKey: string,
-): Promise<SetDetails> {
-	if (!apiKey) {
-		throw new Error('Rebrickable API key is required');
+export async function getSetDetails(setNumber: string): Promise<Set> {
+	if (!REBRICKABLE_API_KEY) {
+		throw new Error('REBRICKABLE_API_KEY environment variable is not set');
 	}
 
-	const baseUrl = 'https://rebrickable.com/api/v3/lego';
+	const endpoint = `/api/v3/lego/sets/${setNumber}/` as const;
 
 	try {
-		const response = await axios.get<SetDetails>(
-			`${baseUrl}/sets/${setNumber}/`,
-			{
-				headers: {
-					Authorization: `key ${apiKey}`,
-					Accept: 'application/json',
-				},
-			},
-		);
+		const response = await fetchRebrickableAPI(endpoint, {
+			key: REBRICKABLE_API_KEY,
+		});
 
-		return response.data;
+		return response;
 	} catch (error) {
-		if (axios.isAxiosError(error)) {
-			if (error.response?.status === 404) {
-				throw new Error(`Set ${setNumber} not found`);
-			}
-			throw new Error(
-				`API error: ${error.response?.status} ${error.response?.statusText}`,
-			);
-		}
-		throw error;
+		throw handleError(error, [
+			{status: 404, text: `Set ${setNumber} not found`},
+		]);
 	}
+}
+
+/**
+ * Gets all available colors/elements for a given part design ID
+ * @param partNum The design ID from Brickognize
+ * @returns Promise resolving to array of available elements with colors
+ */
+export async function getPartColors(partNum: string): Promise<PartColor[]> {
+	if (!REBRICKABLE_API_KEY) {
+		throw new Error('REBRICKABLE_API_KEY environment variable is not set');
+	}
+
+	const endpoint =
+		`/api/v3/lego/parts/${partNum}/colors/?page_size=1000` as const;
+
+	try {
+		const response = await fetchRebrickableAPI(endpoint, {
+			key: REBRICKABLE_API_KEY,
+		});
+
+		return response.results as PartColor[];
+	} catch (error) {
+		throw handleError(error);
+	}
+}
+
+/**
+ * Finds the missing element for a given part and color ID
+ * @param partOrPartNum Either an InventoryPart object or a part number string
+ * @param color_id The color ID to search for (required if partOrPartNum is a string)
+ * @returns Promise resolving to an array of possible element IDs
+ */
+export async function findMissingElement(
+	part: InventoryPart,
+): Promise<PartColorElements[]>;
+export async function findMissingElement(
+	part_num: string,
+	color_id: number,
+): Promise<PartColorElements[]>;
+export async function findMissingElement(
+	partOrPartNum: InventoryPart | string,
+	color_id?: number,
+): Promise<PartColorElements[]> {
+	if (!REBRICKABLE_API_KEY) {
+		throw new Error('REBRICKABLE_API_KEY environment variable is not set');
+	}
+
+	let part_num: string;
+	let colorId: number;
+
+	if (typeof partOrPartNum === 'string') {
+		part_num = partOrPartNum;
+		colorId = color_id!; // color_id must be provided if partOrPartNum is a string
+	} else {
+		part_num = partOrPartNum.part.part_num;
+		colorId = partOrPartNum.color.id;
+	}
+
+	const endpoint = `/api/v3/lego/parts/${part_num}/` as const;
+	let response: DetailedPart;
+
+	try {
+		response = (await fetchRebrickableAPI(endpoint, {
+			key: REBRICKABLE_API_KEY,
+		})) as DetailedPart;
+	} catch (error) {
+		throw handleError(error);
+	}
+
+	if (!response.molds || !response.molds.length) {
+		return [];
+	}
+
+	const possibleElements = await Promise.allSettled(
+		response.molds?.map(async mold => {
+			const elementEndpoint =
+				`/api/v3/lego/parts/${mold}/colors/${colorId}/` as const;
+
+			try {
+				const elementResponse = (await fetchRebrickableAPI(elementEndpoint, {
+					key: REBRICKABLE_API_KEY,
+				})) as unknown as PartColorElements;
+				return elementResponse;
+			} catch (error) {
+				return null;
+			}
+		}),
+	);
+
+	const validElements = possibleElements
+		.filter(
+			(res): res is PromiseFulfilledResult<PartColorElements> =>
+				res.status === 'fulfilled' && res.value !== null,
+		)
+		.map(res => res.value);
+
+	return validElements;
+}
+
+function handleError(
+	error: unknown,
+	customResStatus?: {status: number; text: string}[],
+): Error | unknown {
+	if (error instanceof RebrickableAPIError) {
+		for (const err of customResStatus || []) {
+			if (error.response?.status === err.status) {
+				return new Error(err.text);
+			}
+		}
+		return new Error(
+			`Rebrickable API error: ${error.response?.status} ${error.response?.statusText}`,
+		);
+	}
+	return error;
 }
