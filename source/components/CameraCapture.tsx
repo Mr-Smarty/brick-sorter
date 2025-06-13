@@ -6,6 +6,7 @@ import {recognizePart, getBestMatch} from '../utils/brickognizeApi.js';
 import {getPartColors} from '../utils/rebrickableApi.js';
 import {PartColor} from '../types/typings.js';
 import {useDatabase} from '../context/DatabaseContext.js';
+import SelectInput from 'ink-select-input';
 
 interface CameraCaptureProps {
 	onPartRecognized: (
@@ -33,7 +34,6 @@ export default function CameraCapture({
 		confidence: number;
 	} | null>(null);
 	const [availableColors, setAvailableColors] = useState<PartColor[]>([]);
-	const [selectedColorIndex, setSelectedColorIndex] = useState(0);
 	const [showColorSelection, setShowColorSelection] = useState(false);
 
 	const setColorSelectionState = (active: boolean) => {
@@ -55,7 +55,12 @@ export default function CameraCapture({
 			setStatus('Image captured, recognizing part...');
 
 			const results = await recognizePart(imageBuffer);
-			const match = getBestMatch(results); // 70% confidence threshold
+
+			const existingParts = results.items.filter(item =>
+				db.prepare('SELECT 1 FROM parts WHERE part_num = ?').get(item.id),
+			);
+
+			const match = getBestMatch(existingParts);
 
 			if (match) {
 				setRecognizedPart({
@@ -115,13 +120,12 @@ export default function CameraCapture({
 						.filter(color => color.elements.length > 0);
 
 					setAvailableColors(existingColors);
-					setSelectedColorIndex(0);
 
 					if (existingColors.length > 0) {
 						setColorSelectionState(true);
 						setStatus('Select color using arrow keys and press Enter');
 					} else {
-						setStatus('No colors found in database - please enter manually');
+						setStatus('No parts found in database - please enter manually');
 					}
 				} catch (colorError) {
 					setStatus(
@@ -133,7 +137,7 @@ export default function CameraCapture({
 					setIsLoadingColors(false);
 				}
 			} else {
-				setStatus('No confident part match found. Please enter manually.');
+				setStatus('No matches found in database. Please enter manually.');
 			}
 		} catch (error) {
 			if (error instanceof Error) {
@@ -146,9 +150,9 @@ export default function CameraCapture({
 		}
 	};
 
-	const handleColorSelect = () => {
-		if (recognizedPart && availableColors[selectedColorIndex]) {
-			const selectedColor = availableColors[selectedColorIndex];
+	const handleColorSelect = (item: {value: number}) => {
+		const selectedColor = availableColors.find(c => c.color_id === item.value);
+		if (recognizedPart && selectedColor) {
 			onPartRecognized(
 				selectedColor.elements[0]!,
 				`${recognizedPart.name} (${selectedColor.color_name})`,
@@ -164,23 +168,9 @@ export default function CameraCapture({
 	useInput(async (input, key) => {
 		if (input === ' ') {
 			await handleImageCapture();
-			return;
-		}
-
-		if (showColorSelection) {
-			if (key.upArrow && selectedColorIndex > 0) {
-				setSelectedColorIndex(selectedColorIndex - 1);
-			} else if (
-				key.downArrow &&
-				selectedColorIndex < availableColors.length - 1
-			) {
-				setSelectedColorIndex(selectedColorIndex + 1);
-			} else if (key.return) {
-				handleColorSelect();
-			} else if (key.escape) {
-				setColorSelectionState(false);
-				setStatus('Color selection cancelled');
-			}
+		} else if (showColorSelection && key.escape) {
+			setColorSelectionState(false);
+			setStatus('Color selection cancelled');
 		}
 		return;
 	});
@@ -228,20 +218,13 @@ export default function CameraCapture({
 				>
 					<Text bold>Available Colors for {recognizedPart?.name}:</Text>
 					<Box height={1} />
-					{availableColors.slice(0, 10).map((color, index) => (
-						<Box key={color.color_id}>
-							<Text color={index === selectedColorIndex ? 'green' : 'white'}>
-								{index === selectedColorIndex ? '> ' : '  '}
-								{color.color_name}
-								<Text dimColor> ({color.elements.length} elements)</Text>
-							</Text>
-						</Box>
-					))}
-					{availableColors.length > 10 && (
-						<Text dimColor>
-							... and {availableColors.length - 10} more colors
-						</Text>
-					)}
+					<SelectInput
+						items={availableColors.map(color => ({
+							label: `${color.color_name} (${color.elements.length} elements)`,
+							value: color.color_id,
+						}))}
+						onSelect={handleColorSelect}
+					/>
 				</Box>
 			)}
 

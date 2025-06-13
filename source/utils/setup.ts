@@ -11,7 +11,9 @@ export function setup(db: DatabaseSync) {
         CREATE TABLE IF NOT EXISTS parts (
             id STRING PRIMARY KEY,
             name TEXT NOT NULL,
-            quantity INTEGER NOT NULL
+            quantity INTEGER NOT NULL,
+            part_num STRING,
+            color_id INTEGER
         );
 
         CREATE TABLE IF NOT EXISTS lego_set_parts (

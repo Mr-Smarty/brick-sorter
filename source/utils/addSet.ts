@@ -104,8 +104,14 @@ function insertPartsToDatabase(
 
 		// First insert the part if it doesn't exist
 		db.prepare(
-			'INSERT OR IGNORE INTO parts (id, name, quantity) VALUES (?, ?, ?)',
-		).run(part.element_id, part.part.name, 0);
+			'INSERT OR IGNORE INTO parts (id, name, quantity, part_num, color_id) VALUES (?, ?, ?, ?, ?)',
+		).run(
+			part.element_id,
+			part.part.name,
+			0,
+			part.part.part_num,
+			part.color.id,
+		);
 
 		// Then create the relationship between the set and part
 		db.prepare(

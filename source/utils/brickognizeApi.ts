@@ -70,24 +70,20 @@ export async function recognizePart(
 
 /**
  * Gets the best part match from Brickognize results
- * @param results Brickognize API response
+ * @param items Brickognize API response items
  * @param minScore Minimum confidence score (0-1)
  * @returns Best match or null if below threshold
  */
 export function getBestMatch(
-	results: BrickognizeResponse,
+	items: BrickognizeItem[],
 	minScore: number = CERTAINTY_THRESHOLD,
 ): BrickognizeItem | null {
-	if (!results.items || !results.items[0]) {
+	if (!items || !items[0]) {
 		return null;
 	}
 
-	const bestMatch = results.items[0];
-	if (bestMatch.score < minScore) {
-		return null;
-	}
-
-	return bestMatch;
+	const bestMatch = items[0];
+	return bestMatch.score < minScore ? null : bestMatch;
 }
 
 /**
