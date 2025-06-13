@@ -7,7 +7,7 @@ const CERTAINTY_THRESHOLD = parseFloat(
 	process.env['CERTAINTY_THRESHOLD'] || '0.85',
 );
 
-interface BrickognizeItem {
+export interface BrickognizeItem {
 	id: string;
 	name: string;
 	img_url: string;

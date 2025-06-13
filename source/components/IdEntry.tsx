@@ -63,6 +63,7 @@ export default function IdEntry({
 	const [isLoading, setIsLoading] = useState(false);
 	const [recognitionConfidence, setRecognitionConfidence] = useState(0);
 	const [isColorSelectionActive, setIsColorSelectionActive] = useState(false);
+	const [isGuessSelectionActive, setIsGuessSelectionActive] = useState(false);
 	const [elementSelectionData, setElementSelectionData] = useState<{
 		part: InventoryPart;
 		set: Set;
@@ -94,6 +95,10 @@ export default function IdEntry({
 
 	const handleColorSelectionChange = (isActive: boolean) => {
 		setIsColorSelectionActive(isActive);
+	};
+
+	const handleGuessSelectionChange = (isActive: boolean) => {
+		setIsGuessSelectionActive(isActive);
 	};
 
 	const handleElementSelect = async (elementId: string) => {
@@ -218,7 +223,13 @@ export default function IdEntry({
 	};
 
 	useInput(async (_input, key) => {
-		if (isLoading || isColorSelectionActive || elementSelectionData) return;
+		if (
+			isLoading ||
+			isColorSelectionActive ||
+			isGuessSelectionActive ||
+			elementSelectionData
+		)
+			return;
 
 		if (key.downArrow) {
 			focusNext();
@@ -433,7 +444,10 @@ export default function IdEntry({
 			<CameraCapture
 				onPartRecognized={handlePartRecognized}
 				onColorSelectionChange={handleColorSelectionChange}
-				isEnabled={!isLoading && !isColorSelectionActive}
+				onGuessSelectionChange={handleGuessSelectionChange}
+				isEnabled={
+					!isLoading && !isColorSelectionActive && !isGuessSelectionActive
+				}
 			/>
 
 			<Box marginTop={1}>

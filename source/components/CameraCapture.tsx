@@ -7,6 +7,7 @@ import {getPartColors} from '../utils/rebrickableApi.js';
 import {PartColor} from '../types/typings.js';
 import {useDatabase} from '../context/DatabaseContext.js';
 import SelectInput from 'ink-select-input';
+import type {BrickognizeItem} from '../utils/brickognizeApi.js';
 
 interface CameraCaptureProps {
 	onPartRecognized: (
@@ -15,12 +16,14 @@ interface CameraCaptureProps {
 		confidence: number,
 	) => void;
 	onColorSelectionChange: (isActive: boolean) => void;
+	onGuessSelectionChange: (isActive: boolean) => void;
 	isEnabled: boolean;
 }
 
 export default function CameraCapture({
 	onPartRecognized,
 	onColorSelectionChange,
+	onGuessSelectionChange,
 	isEnabled,
 }: CameraCaptureProps) {
 	const db = useDatabase();
@@ -35,10 +38,77 @@ export default function CameraCapture({
 	} | null>(null);
 	const [availableColors, setAvailableColors] = useState<PartColor[]>([]);
 	const [showColorSelection, setShowColorSelection] = useState(false);
+	const [guesses, setGuesses] = useState<BrickognizeItem[]>([]);
+	const [showGuessSelection, setShowGuessSelection] = useState(false);
 
 	const setColorSelectionState = (active: boolean) => {
 		setShowColorSelection(active);
 		onColorSelectionChange(active);
+	};
+
+	const setGuessSelectionState = (active: boolean) => {
+		setShowGuessSelection(active);
+		onGuessSelectionChange(active);
+	};
+
+	const loadAndShowColors = async (partId: string) => {
+		setIsLoadingColors(true);
+		setStatus('Loading available colors...');
+		try {
+			const colors = await getPartColors(partId);
+
+			const existingColors = colors
+				.map(color => {
+					const uniquePrioritizedElements = Array.from(
+						new Set(
+							color.elements.filter(elementId =>
+								db.prepare('SELECT 1 FROM parts WHERE id = ?').get(elementId),
+							),
+						),
+					)
+						.map(elementId => {
+							const setPriorityRow = db
+								.prepare(
+									`SELECT s.priority FROM lego_set_parts sp
+                                JOIN lego_sets s ON sp.lego_set_id = s.id
+                                WHERE sp.part_id = ?
+                                ORDER BY s.priority ASC LIMIT 1`,
+								)
+								.get(elementId) as {priority: number} | undefined;
+							return {
+								elementId,
+								priority: setPriorityRow
+									? setPriorityRow.priority
+									: Number.MAX_SAFE_INTEGER,
+							};
+						})
+						.sort((a, b) => a.priority - b.priority)
+						.map(e => e.elementId);
+
+					return {
+						...color,
+						elements: uniquePrioritizedElements,
+					};
+				})
+				.filter(color => color.elements.length > 0);
+
+			setAvailableColors(existingColors);
+
+			if (existingColors.length > 0) {
+				setColorSelectionState(true);
+				setStatus('Select the part color from the options below:');
+			} else {
+				setStatus('No parts found in database - please enter manually');
+			}
+		} catch (colorError) {
+			setStatus(
+				`Failed to load colors: ${
+					colorError instanceof Error ? colorError.message : 'Unknown error'
+				}`,
+			);
+		} finally {
+			setIsLoadingColors(false);
+		}
 	};
 
 	const handleImageCapture = async () => {
@@ -47,6 +117,7 @@ export default function CameraCapture({
 		setIsCapturing(true);
 		setStatus('Capturing image...');
 		setColorSelectionState(false);
+		setGuessSelectionState(false);
 		setRecognizedPart(null);
 
 		try {
@@ -74,70 +145,16 @@ export default function CameraCapture({
 					)}% confidence)`,
 				);
 
-				setIsLoadingColors(true);
-				setStatus('Loading available colors...');
-
-				try {
-					const colors = await getPartColors(match.id);
-
-					// Filter colors to only those with existing elements in the database
-					const existingColors = colors
-						.map(color => {
-							const uniquePrioritizedElements = Array.from(
-								new Set(
-									color.elements.filter(elementId =>
-										db
-											.prepare('SELECT 1 FROM parts WHERE id = ?')
-											.get(elementId),
-									),
-								),
-							)
-								// Reorder elements by set priority (lower number = higher priority)
-								.map(elementId => {
-									const setPriorityRow = db
-										.prepare(
-											`SELECT s.priority FROM lego_set_parts sp
-											JOIN lego_sets s ON sp.lego_set_id = s.id
-											WHERE sp.part_id = ?
-											ORDER BY s.priority ASC LIMIT 1`,
-										)
-										.get(elementId) as {priority: number} | undefined;
-									return {
-										elementId,
-										priority: setPriorityRow
-											? setPriorityRow.priority
-											: Number.MAX_SAFE_INTEGER,
-									};
-								})
-								.sort((a, b) => a.priority - b.priority)
-								.map(e => e.elementId);
-
-							return {
-								...color,
-								elements: uniquePrioritizedElements,
-							};
-						})
-						.filter(color => color.elements.length > 0);
-
-					setAvailableColors(existingColors);
-
-					if (existingColors.length > 0) {
-						setColorSelectionState(true);
-						setStatus('Select color using arrow keys and press Enter');
-					} else {
-						setStatus('No parts found in database - please enter manually');
-					}
-				} catch (colorError) {
-					setStatus(
-						`Failed to load colors: ${
-							colorError instanceof Error ? colorError.message : 'Unknown error'
-						}`,
-					);
-				} finally {
-					setIsLoadingColors(false);
-				}
+				await loadAndShowColors(match.id);
 			} else {
-				setStatus('No matches found in database. Please enter manually.');
+				const topGuesses = results.items.slice(0, 5); // Show top 5 guesses
+				if (topGuesses.length) {
+					setGuesses(topGuesses);
+					setGuessSelectionState(true);
+					setStatus('Select the correct part from the guesses below:');
+				} else {
+					setStatus('No matches found. Please enter manually.');
+				}
 			}
 		} catch (error) {
 			if (error instanceof Error) {
@@ -165,26 +182,38 @@ export default function CameraCapture({
 		}
 	};
 
+	const handleGuessSelect = async (item: {value: string}) => {
+		const guess = guesses.find(g => g.id === item.value);
+		if (!guess) return;
+		setRecognizedPart({
+			partNumber: guess.id,
+			name: guess.name,
+			confidence: guess.score,
+		});
+		setGuessSelectionState(false);
+		setStatus(
+			`Selected guess: ${guess.name} (${Math.round(
+				guess.score * 100,
+			)}% confidence)`,
+		);
+		await loadAndShowColors(guess.id);
+	};
+
 	useInput(async (input, key) => {
 		if (input === ' ') {
 			await handleImageCapture();
 		} else if (showColorSelection && key.escape) {
 			setColorSelectionState(false);
 			setStatus('Color selection cancelled');
+		} else if (showGuessSelection && key.escape) {
+			setGuessSelectionState(false);
+			setStatus('Guess selection cancelled');
 		}
 		return;
 	});
 
 	return (
 		<Box flexDirection="column" marginTop={1}>
-			<Box>
-				<Text dimColor>
-					{showColorSelection
-						? 'Select color with arrow keys, Enter to confirm, Esc to cancel'
-						: 'Press SPACE to capture image and recognize part'}
-				</Text>
-			</Box>
-
 			{(isCapturing || isLoadingColors || status) && (
 				<Box marginTop={1}>
 					{isCapturing || isLoadingColors ? (
@@ -197,7 +226,9 @@ export default function CameraCapture({
 					) : (
 						<Text
 							color={
-								status.includes('recognized') || status.includes('selected')
+								status.includes('recognized') ||
+								status.includes('selected') ||
+								status.includes('Select the right part')
 									? 'green'
 									: 'yellow'
 							}
@@ -205,6 +236,28 @@ export default function CameraCapture({
 							{status}
 						</Text>
 					)}
+				</Box>
+			)}
+
+			{showGuessSelection && guesses.length && (
+				<Box
+					flexDirection="column"
+					marginTop={1}
+					borderStyle="round"
+					borderColor="blue"
+					padding={1}
+				>
+					<Text bold>Top Part Guesses:</Text>
+					<Box height={1} />
+					<SelectInput
+						items={guesses.map(guess => ({
+							label: `${guess.name} (${guess.id}) [${Math.round(
+								guess.score * 100,
+							)}%]`,
+							value: guess.id,
+						}))}
+						onSelect={handleGuessSelect}
+					/>
 				</Box>
 			)}
 
@@ -228,7 +281,7 @@ export default function CameraCapture({
 				</Box>
 			)}
 
-			{lastCapture && !showColorSelection && (
+			{lastCapture && !showColorSelection && !showGuessSelection && (
 				<Box marginTop={1}>
 					<Text dimColor>Last capture: {lastCapture.length} bytes</Text>
 				</Box>

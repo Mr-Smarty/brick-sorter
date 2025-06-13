@@ -1,5 +1,7 @@
 # brick-sorter-cli
 
+This tool is made for you if you know which Lego sets you have, but their parts are all mixed. This tool allows you to add your sets, then sort your parts into their sets using a camera/webcam.
+
 ## Install
 
 You will need Node JS installed. If you run into issues, note the project was built with `v22.16.0`.
