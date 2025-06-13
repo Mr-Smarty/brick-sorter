@@ -140,45 +140,48 @@ export default function CameraCapture({
 				db.prepare('SELECT 1 FROM parts WHERE part_num = ?').get(item.id),
 			);
 
-			const matches = existingParts.filter(
-				item => item.score >= CERTAINTY_THRESHOLD,
-			);
+			const sortedParts = [...existingParts].sort((a, b) => b.score - a.score);
 
-			if (matches.length === 1 && matches[0]) {
-				const match = matches[0];
-				setRecognizedPart({
-					partNumber: match.id,
-					name: match.name,
-					confidence: match.score,
-				});
-				setStatus(
-					`Part recognized: ${match.name} (${Math.round(
-						match.score * 100,
-					)}% confidence)`,
-				);
+			if (sortedParts.length > 0) {
+				const topScore = sortedParts[0]!.score;
 
-				await loadAndShowColors(matches[0].id);
-			} else if (matches.length > 1) {
-				matches.sort((a, b) => b.score - a.score);
-				const topScore = matches[0]!.score;
-				const similarParts = matches.filter(
-					item => topScore - item.score <= SIMILARITY_THRESHOLD,
-				);
-				if (similarParts.length > 1) {
-					setGuesses(similarParts);
-					setGuessSelectionState(true);
-					setStatus('Multiple similar parts found. Select the correct part:');
-				}
-			} else {
-				const topGuesses = results.items.slice(0, 5); // Show top 5 guesses
-				if (topGuesses.length) {
-					setGuesses(topGuesses);
-					setGuessSelectionState(true);
-					setStatus('Select the correct part from the guesses below:');
+				if (topScore >= CERTAINTY_THRESHOLD) {
+					const similarParts = sortedParts.filter(
+						item => topScore - item.score <= SIMILARITY_THRESHOLD,
+					);
+
+					if (similarParts.length > 1) {
+						setGuesses(similarParts);
+						setGuessSelectionState(true);
+						setStatus('Multiple similar parts found. Select the correct part:');
+						return;
+					} else {
+						const match = sortedParts[0]!;
+						setRecognizedPart({
+							partNumber: match.id,
+							name: match.name,
+							confidence: match.score,
+						});
+						setStatus(
+							`Part recognized: ${match.name} (${Math.round(
+								match.score * 100,
+							)}% confidence)`,
+						);
+
+						await loadAndShowColors(match.id);
+						return;
+					}
 				} else {
-					setStatus('No matches found. Please enter manually.');
+					// Top score is below certainty threshold, show top guesses
+					const topGuesses = results.items.slice(0, 5);
+					if (topGuesses.length) {
+						setGuesses(topGuesses);
+						setGuessSelectionState(true);
+						setStatus('Select the correct part from the guesses below:');
+					} else setStatus('No matches found. Please enter manually.');
+					return;
 				}
-			}
+			} else setStatus('No matches found. Please enter manually.');
 		} catch (error) {
 			if (error instanceof Error) {
 				setStatus(`Camera error: ${error.message}`);
