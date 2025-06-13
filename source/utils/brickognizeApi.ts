@@ -1,11 +1,5 @@
 import axios from 'axios';
 import FormData from 'form-data';
-import {config} from 'dotenv';
-config({path: new URL('../../.env', import.meta.url)});
-
-const CERTAINTY_THRESHOLD = parseFloat(
-	process.env['CERTAINTY_THRESHOLD'] || '0.85',
-);
 
 export interface BrickognizeItem {
 	id: string;
@@ -66,24 +60,6 @@ export async function recognizePart(
 		}
 		throw error;
 	}
-}
-
-/**
- * Gets the best part match from Brickognize results
- * @param items Brickognize API response items
- * @param minScore Minimum confidence score (0-1)
- * @returns Best match or null if below threshold
- */
-export function getBestMatch(
-	items: BrickognizeItem[],
-	minScore: number = CERTAINTY_THRESHOLD,
-): BrickognizeItem | null {
-	if (!items || !items[0]) {
-		return null;
-	}
-
-	const bestMatch = items[0];
-	return bestMatch.score < minScore ? null : bestMatch;
 }
 
 /**

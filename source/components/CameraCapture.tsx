@@ -2,12 +2,21 @@ import React, {useState} from 'react';
 import {Text, Box, useInput} from 'ink';
 import Spinner from 'ink-spinner';
 import {captureImage} from '../utils/camera.js';
-import {recognizePart, getBestMatch} from '../utils/brickognizeApi.js';
+import {recognizePart} from '../utils/brickognizeApi.js';
 import {getPartColors} from '../utils/rebrickableApi.js';
 import {PartColor} from '../types/typings.js';
 import {useDatabase} from '../context/DatabaseContext.js';
 import SelectInput from 'ink-select-input';
 import type {BrickognizeItem} from '../utils/brickognizeApi.js';
+
+import {config} from 'dotenv';
+config({path: new URL('../../.env', import.meta.url)});
+const CERTAINTY_THRESHOLD = parseFloat(
+	process.env['CERTAINTY_THRESHOLD'] || '0.85',
+);
+const SIMILARITY_THRESHOLD = parseFloat(
+	process.env['SIMILARITY_THRESHOLD'] || '0.05',
+);
 
 interface CameraCaptureProps {
 	onPartRecognized: (
@@ -131,9 +140,12 @@ export default function CameraCapture({
 				db.prepare('SELECT 1 FROM parts WHERE part_num = ?').get(item.id),
 			);
 
-			const match = getBestMatch(existingParts);
+			const matches = existingParts.filter(
+				item => item.score >= CERTAINTY_THRESHOLD,
+			);
 
-			if (match) {
+			if (matches.length === 1 && matches[0]) {
+				const match = matches[0];
 				setRecognizedPart({
 					partNumber: match.id,
 					name: match.name,
@@ -145,7 +157,18 @@ export default function CameraCapture({
 					)}% confidence)`,
 				);
 
-				await loadAndShowColors(match.id);
+				await loadAndShowColors(matches[0].id);
+			} else if (matches.length > 1) {
+				matches.sort((a, b) => b.score - a.score);
+				const topScore = matches[0]!.score;
+				const similarParts = matches.filter(
+					item => topScore - item.score <= SIMILARITY_THRESHOLD,
+				);
+				if (similarParts.length > 1) {
+					setGuesses(similarParts);
+					setGuessSelectionState(true);
+					setStatus('Multiple similar parts found. Select the correct part:');
+				}
 			} else {
 				const topGuesses = results.items.slice(0, 5); // Show top 5 guesses
 				if (topGuesses.length) {
