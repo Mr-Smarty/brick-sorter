@@ -1,4 +1,4 @@
-import React, {useState, useRef} from 'react';
+import React, {useState, useRef, useImperativeHandle, forwardRef} from 'react';
 import {Text, Box, useFocus, useFocusManager, useInput} from 'ink';
 import TextInput from 'ink-text-input';
 import {useDatabase} from '../context/DatabaseContext.js';
@@ -17,16 +17,21 @@ interface FocusableTextInputProps {
 	placeholder: string;
 	focusKey: string;
 	width?: number;
+	ref?: React.Ref<{focus: () => void}>;
 }
 
-const FocusableTextInput: React.FC<FocusableTextInputProps> = ({
-	value,
-	onChange,
-	placeholder,
-	focusKey,
-	width,
-}) => {
-	const {isFocused} = useFocus({id: focusKey});
+const FocusableTextInput = forwardRef<
+	{focus: () => void},
+	FocusableTextInputProps
+>(function FocusableTextInput(
+	{value, onChange, placeholder, focusKey, width}: FocusableTextInputProps,
+	ref: React.Ref<{focus: () => void}>,
+) {
+	const {isFocused, focus} = useFocus({id: focusKey});
+	useImperativeHandle(ref, () => ({focus: () => focus(focusKey)}), [
+		focus,
+		focusKey,
+	]);
 
 	return (
 		<Box flexDirection="column" flexGrow={1} width={width}>
@@ -39,7 +44,7 @@ const FocusableTextInput: React.FC<FocusableTextInputProps> = ({
 			/>
 		</Box>
 	);
-};
+});
 
 interface IdEntryProps {
 	onAllocationUpdate: (
@@ -77,11 +82,13 @@ export default function IdEntry({
 	const partsCache = useRef<InventoryPart[]>(undefined);
 	const setCache = useRef<Set>(undefined);
 
-	const {focusNext, focusPrevious} = useFocusManager();
+	const {focusNext, focusPrevious, focus} = useFocusManager();
 	const {isFocused: isSetIdFocused} = useFocus({id: 'setId'});
 	const {isFocused: isPriorityFocused} = useFocus({id: 'priority'});
 	const {isFocused: isPartIdFocused} = useFocus({id: 'partId'});
 	const {isFocused: isQuantityFocused} = useFocus({id: 'quantity'});
+
+	const partIdInputRef = useRef<{focus: () => void}>(null);
 
 	const handlePartRecognized = (
 		elementId: string,
@@ -91,6 +98,8 @@ export default function IdEntry({
 		setPartId(elementId);
 		setRecognitionConfidence(confidence);
 		setStatus(`Selected: ${partName}`);
+		partIdInputRef.current?.focus();
+		focus('partId');
 	};
 
 	const handleColorSelectionChange = (isActive: boolean) => {
@@ -335,7 +344,7 @@ export default function IdEntry({
 					<Text>Set Number: </Text>
 					<FocusableTextInput
 						value={setId}
-						onChange={setSetId}
+						onChange={val => setSetId(val.replace(/\s/g, ''))}
 						placeholder="Enter set #"
 						focusKey="setId"
 						width={12}
@@ -381,8 +390,9 @@ export default function IdEntry({
 				<Box marginRight={2}>
 					<Text>Part Number: </Text>
 					<FocusableTextInput
+						ref={partIdInputRef}
 						value={partId}
-						onChange={setPartId}
+						onChange={val => setPartId(val.replace(/\s/g, ''))}
 						placeholder="Enter part #"
 						focusKey="partId"
 						width={12}
