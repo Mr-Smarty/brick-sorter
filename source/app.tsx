@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import BigTextFlex from './components/BigTextFlex.js';
 import setup from './utils/setup.js';
 import {DatabaseSync} from 'node:sqlite';
@@ -8,6 +8,9 @@ import {DatabaseProvider} from './context/DatabaseContext.js';
 import {Box, Text} from 'ink';
 import {Tab, Tabs} from 'ink-tab';
 
+const MIN_WIDTH = 100; // Minimum terminal width
+const MIN_HEIGHT = 24; // Minimum terminal height
+
 type Props = {
 	dbPath: string | undefined;
 };
@@ -16,6 +19,10 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 	const db = new DatabaseSync(dbPath);
 	setup(db);
 
+	const [size, setSize] = useState({
+		width: process.stdout.columns,
+		height: process.stdout.rows,
+	});
 	const [activeTab, setActiveTab] = useState('dashboard');
 	const [allocations, setAllocations] = useState<
 		Array<{setId: string; setName: string; allocated: number}>
@@ -29,6 +36,24 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 		setAllocations(newAllocations);
 		setLastPartId(partId);
 	};
+
+	useEffect(() => {
+		const onResize = () => {
+			setSize({
+				width: process.stdout.columns,
+				height: process.stdout.rows,
+			});
+		};
+
+		process.stdout.on('resize', onResize);
+
+		return () => {
+			process.stdout.off('resize', onResize);
+		};
+	}, []);
+
+	if (size.width < MIN_WIDTH || size.height < MIN_HEIGHT)
+		return <Text color="red">{'Terminal window size is too small :('}</Text>;
 
 	return (
 		<DatabaseProvider db={db}>
