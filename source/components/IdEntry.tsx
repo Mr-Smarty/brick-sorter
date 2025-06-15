@@ -1,4 +1,10 @@
-import React, {useState, useRef, useImperativeHandle, forwardRef} from 'react';
+import React, {
+	useState,
+	useRef,
+	useImperativeHandle,
+	forwardRef,
+	useEffect,
+} from 'react';
 import {Text, Box, useFocus, useFocusManager, useInput} from 'ink';
 import TextInput from 'ink-text-input';
 import {useDatabase} from '../context/DatabaseContext.js';
@@ -10,6 +16,7 @@ import Spinner from 'ink-spinner';
 import type {InventoryPart} from '@rebrickableapi/types/data/inventory-part';
 import {Set} from '@rebrickableapi/types/data/set';
 import ElementSelector, {ElementSelectionNeeded} from './ElementSelector.js';
+import {makeTabAware, useTabAwareFocus} from './TabGroup.js';
 
 interface FocusableTextInputProps {
 	value: string;
@@ -17,17 +24,24 @@ interface FocusableTextInputProps {
 	placeholder: string;
 	focusKey: string;
 	width?: number;
-	ref?: React.Ref<{focus: () => void}>;
+	isActive: boolean;
 }
 
 const FocusableTextInput = forwardRef<
 	{focus: () => void},
 	FocusableTextInputProps
 >(function FocusableTextInput(
-	{value, onChange, placeholder, focusKey, width}: FocusableTextInputProps,
+	{
+		value,
+		onChange,
+		placeholder,
+		focusKey,
+		width,
+		isActive,
+	}: FocusableTextInputProps,
 	ref: React.Ref<{focus: () => void}>,
 ) {
-	const {isFocused, focus} = useFocus({id: focusKey});
+	const {isFocused, focus} = useFocus({id: focusKey, isActive: isActive});
 	useImperativeHandle(ref, () => ({focus: () => focus(focusKey)}), [
 		focus,
 		focusKey,
@@ -39,8 +53,8 @@ const FocusableTextInput = forwardRef<
 				value={value}
 				onChange={onChange}
 				placeholder={placeholder}
-				focus={isFocused}
-				showCursor={isFocused}
+				focus={isActive && isFocused}
+				showCursor={isActive && isFocused}
 			/>
 		</Box>
 	);
@@ -51,11 +65,11 @@ interface IdEntryProps {
 		allocations: Array<{setId: string; setName: string; allocated: number}>,
 		partId: string,
 	) => void;
+	isActive: boolean;
 }
 
-export default function IdEntry({
-	onAllocationUpdate,
-}: IdEntryProps): JSX.Element {
+export default makeTabAware(_IdEntry, () => {});
+function _IdEntry({onAllocationUpdate, isActive}: IdEntryProps): JSX.Element {
 	const db = useDatabase();
 	const [setId, setSetId] = useState('');
 	const [priority, setPriority] = useState(fixPriorities(db) + '');
@@ -82,11 +96,33 @@ export default function IdEntry({
 	const partsCache = useRef<InventoryPart[]>(undefined);
 	const setCache = useRef<Set>(undefined);
 
-	const {focusNext, focusPrevious, focus} = useFocusManager();
-	const {isFocused: isSetIdFocused} = useFocus({id: 'setId'});
-	const {isFocused: isPriorityFocused} = useFocus({id: 'priority'});
-	const {isFocused: isPartIdFocused} = useFocus({id: 'partId'});
-	const {isFocused: isQuantityFocused} = useFocus({id: 'quantity'});
+	const {focusNext, focusPrevious, focus, disableFocus, enableFocus} =
+		useFocusManager();
+	const [lastFocused, setLastFocused] = useState<string | null>('setId');
+	const {isFocused: isSetIdFocused} = useTabAwareFocus(
+		'setId',
+		isActive,
+		lastFocused === 'setId',
+		setLastFocused,
+	);
+	const {isFocused: isPriorityFocused} = useTabAwareFocus(
+		'priority',
+		isActive,
+		lastFocused === 'priority',
+		setLastFocused,
+	);
+	const {isFocused: isPartIdFocused} = useTabAwareFocus(
+		'partId',
+		isActive,
+		lastFocused === 'partId',
+		setLastFocused,
+	);
+	const {isFocused: isQuantityFocused} = useTabAwareFocus(
+		'quantity',
+		isActive,
+		lastFocused === 'quantity',
+		setLastFocused,
+	);
 
 	const partIdInputRef = useRef<{focus: () => void}>(null);
 
@@ -100,14 +136,6 @@ export default function IdEntry({
 		setStatus(`Selected: ${partName}`);
 		partIdInputRef.current?.focus();
 		focus('partId');
-	};
-
-	const handleColorSelectionChange = (isActive: boolean) => {
-		setIsColorSelectionActive(isActive);
-	};
-
-	const handleGuessSelectionChange = (isActive: boolean) => {
-		setIsGuessSelectionActive(isActive);
 	};
 
 	const handleElementSelect = async (elementId: string) => {
@@ -231,7 +259,16 @@ export default function IdEntry({
 		setCache.current = undefined;
 	};
 
+	useEffect(() => {
+		if (isActive) {
+			enableFocus;
+			if (lastFocused) focus(lastFocused);
+		} else disableFocus();
+	}, [isActive]);
+
 	useInput(async (_input, key) => {
+		if (!isActive) return;
+
 		if (
 			isLoading ||
 			isColorSelectionActive ||
@@ -333,6 +370,7 @@ export default function IdEntry({
 				onSelect={handleElementSelect}
 				onSkip={handleElementSkip}
 				onCancel={handleElementCancel}
+				isActive={isActive}
 			/>
 		);
 	}
@@ -348,6 +386,7 @@ export default function IdEntry({
 						placeholder="Enter set #"
 						focusKey="setId"
 						width={12}
+						isActive={isActive}
 					/>
 				</Box>
 
@@ -359,6 +398,7 @@ export default function IdEntry({
 						placeholder="#"
 						focusKey="priority"
 						width={5}
+						isActive={isActive}
 					/>
 				</Box>
 			</Box>
@@ -396,6 +436,7 @@ export default function IdEntry({
 						placeholder="Enter part #"
 						focusKey="partId"
 						width={12}
+						isActive={isActive}
 					/>
 				</Box>
 
@@ -407,6 +448,7 @@ export default function IdEntry({
 						placeholder="1"
 						focusKey="quantity"
 						width={5}
+						isActive={isActive}
 					/>
 				</Box>
 			</Box>
@@ -453,8 +495,8 @@ export default function IdEntry({
 
 			<CameraCapture
 				onPartRecognized={handlePartRecognized}
-				onColorSelectionChange={handleColorSelectionChange}
-				onGuessSelectionChange={handleGuessSelectionChange}
+				onColorSelectionChange={setIsColorSelectionActive}
+				onGuessSelectionChange={setIsGuessSelectionActive}
 				isEnabled={
 					!isLoading && !isColorSelectionActive && !isGuessSelectionActive
 				}

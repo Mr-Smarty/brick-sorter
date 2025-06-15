@@ -30,6 +30,7 @@ interface ElementSelectorProps {
 	onSelect: (elementId: string) => void;
 	onSkip: () => void;
 	onCancel: () => void;
+	isActive: boolean;
 }
 
 export default function ElementSelector({
@@ -37,6 +38,7 @@ export default function ElementSelector({
 	onSelect,
 	onSkip,
 	onCancel,
+	isActive,
 }: ElementSelectorProps) {
 	const hasElements = data.elements.length > 0;
 
@@ -86,7 +88,7 @@ export default function ElementSelector({
 				Instructions: https://rebrickable.com/instructions/{data.set.set_num}/
 			</Text>
 			<Box height={1} />
-			<SelectInput items={items} onSelect={handleSelect} />
+			<SelectInput items={items} onSelect={handleSelect} isFocused={isActive} />
 			<Box height={1} />
 			<Text dimColor>
 				Use arrow keys to navigate • Enter to select • Esc to cancel entire set

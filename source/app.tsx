@@ -5,7 +5,9 @@ import {DatabaseSync} from 'node:sqlite';
 import IdEntry from './components/IdEntry.js';
 import AllocationDisplay from './components/AllocationDisplay.js';
 import {DatabaseProvider} from './context/DatabaseContext.js';
-import {Box} from 'ink';
+import {Box, Text} from 'ink';
+import {Tab, Tabs} from 'ink-tab';
+import {TabGroup} from './components/TabGroup.js';
 
 type Props = {
 	dbPath: string | undefined;
@@ -15,6 +17,7 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 	const db = new DatabaseSync(dbPath);
 	setup(db);
 
+	const [activeTab, setActiveTab] = useState('dashboard');
 	const [allocations, setAllocations] = useState<
 		Array<{setId: string; setName: string; allocated: number}>
 	>([]);
@@ -37,9 +40,43 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 					gradient="retro"
 					align="center"
 				/>
+
 				<Box flexDirection="row" flexGrow={1}>
-					<IdEntry onAllocationUpdate={handleAllocationUpdate} />
+					<TabGroup isActive={activeTab === 'dashboard'}>
+						<IdEntry onAllocationUpdate={handleAllocationUpdate} />
+					</TabGroup>
 					<AllocationDisplay allocations={allocations} partId={lastPartId} />
+				</Box>
+
+				<TabGroup isActive={activeTab === 'test'}>
+					<Box flexDirection="column" paddingLeft={4} minWidth={40}>
+						<Text>test</Text>
+					</Box>
+				</TabGroup>
+				<Box
+					borderStyle="round"
+					borderColor="cyan"
+					marginTop={1}
+					justifyContent="center"
+					width="100%"
+				>
+					<Tabs
+						onChange={name => setActiveTab(name)}
+						defaultValue="dashboard"
+						showIndex={false}
+						colors={{activeTab: {color: 'cyan'}}}
+						keyMap={{
+							useNumbers: false,
+							previous: [],
+							next: [],
+						}}
+					>
+						<Tab name="dashboard">Dashboard</Tab>
+						<Tab name="test">Test</Tab>
+					</Tabs>
+				</Box>
+				<Box justifyContent="center">
+					<Text dimColor>← shift+tab | tab →</Text>
 				</Box>
 			</Box>
 		</DatabaseProvider>
