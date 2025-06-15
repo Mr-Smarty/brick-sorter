@@ -63,6 +63,8 @@ export default function ElementSelector({
 	};
 
 	useInput((_input, key) => {
+		if (!isActive) return;
+
 		if (key.escape) {
 			onCancel();
 		}

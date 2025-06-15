@@ -16,7 +16,6 @@ import Spinner from 'ink-spinner';
 import type {InventoryPart} from '@rebrickableapi/types/data/inventory-part';
 import {Set} from '@rebrickableapi/types/data/set';
 import ElementSelector, {ElementSelectionNeeded} from './ElementSelector.js';
-import {makeTabAware, useTabAwareFocus} from './TabGroup.js';
 
 interface FocusableTextInputProps {
 	value: string;
@@ -68,19 +67,20 @@ interface IdEntryProps {
 	isActive: boolean;
 }
 
-export default makeTabAware(_IdEntry, () => {});
-function _IdEntry({onAllocationUpdate, isActive}: IdEntryProps): JSX.Element {
+export default function IdEntry({
+	onAllocationUpdate,
+	isActive,
+}: IdEntryProps): JSX.Element {
 	const db = useDatabase();
 	const [setId, setSetId] = useState('');
 	const [priority, setPriority] = useState(fixPriorities(db) + '');
 	const [partId, setPartId] = useState('');
 	const [quantity, setQuantity] = useState('1');
 	const [status, setStatus] = useState('');
-	const [statusField, setStatusField] = useState<
-		'setId' | 'partId' | 'priority' | 'quantity' | ''
-	>('');
+	const focusableFields = ['setId', 'partId', 'priority', 'quantity'] as const;
+	type focusableFields = (typeof focusableFields)[number];
+	const [statusField, setStatusField] = useState<focusableFields | ''>('');
 	const [isLoading, setIsLoading] = useState(false);
-	const [recognitionConfidence, setRecognitionConfidence] = useState(0);
 	const [isColorSelectionActive, setIsColorSelectionActive] = useState(false);
 	const [isGuessSelectionActive, setIsGuessSelectionActive] = useState(false);
 	const [elementSelectionData, setElementSelectionData] = useState<{
@@ -99,41 +99,20 @@ function _IdEntry({onAllocationUpdate, isActive}: IdEntryProps): JSX.Element {
 	const {focusNext, focusPrevious, focus, disableFocus, enableFocus} =
 		useFocusManager();
 	const [lastFocused, setLastFocused] = useState<string | null>('setId');
-	const {isFocused: isSetIdFocused} = useTabAwareFocus(
-		'setId',
-		isActive,
-		lastFocused === 'setId',
-		setLastFocused,
-	);
-	const {isFocused: isPriorityFocused} = useTabAwareFocus(
-		'priority',
-		isActive,
-		lastFocused === 'priority',
-		setLastFocused,
-	);
-	const {isFocused: isPartIdFocused} = useTabAwareFocus(
-		'partId',
-		isActive,
-		lastFocused === 'partId',
-		setLastFocused,
-	);
-	const {isFocused: isQuantityFocused} = useTabAwareFocus(
-		'quantity',
-		isActive,
-		lastFocused === 'quantity',
-		setLastFocused,
-	);
+	const isFocused = {} as Record<focusableFields, boolean>;
+	for (const key of focusableFields)
+		isFocused[key] = useFocus({id: key, isActive}).isFocused;
+	const trueFocus = <T extends string>(
+		isFocused: Record<T, boolean>,
+	): T | null => Object.entries(isFocused).find(([_, v]) => v)?.[0] as T | null;
+	useEffect(() => {
+		if (isActive) setLastFocused(() => trueFocus(isFocused));
+	}, [...Object.values(isFocused)]);
 
 	const partIdInputRef = useRef<{focus: () => void}>(null);
 
-	const handlePartRecognized = (
-		elementId: string,
-		partName: string,
-		confidence: number,
-	) => {
+	const handlePartRecognized = (elementId: string) => {
 		setPartId(elementId);
-		setRecognitionConfidence(confidence);
-		setStatus(`Selected: ${partName}`);
 		partIdInputRef.current?.focus();
 		focus('partId');
 	};
@@ -261,7 +240,7 @@ function _IdEntry({onAllocationUpdate, isActive}: IdEntryProps): JSX.Element {
 
 	useEffect(() => {
 		if (isActive) {
-			enableFocus;
+			enableFocus();
 			if (lastFocused) focus(lastFocused);
 		} else disableFocus();
 	}, [isActive]);
@@ -282,7 +261,7 @@ function _IdEntry({onAllocationUpdate, isActive}: IdEntryProps): JSX.Element {
 		} else if (key.upArrow) {
 			focusPrevious();
 		} else if (key.return) {
-			if (isSetIdFocused || isPriorityFocused) {
+			if (isFocused.setId || isFocused.priority) {
 				setIsLoading(true);
 				setStatus('Processing...');
 				setStatusField('setId');
@@ -318,15 +297,15 @@ function _IdEntry({onAllocationUpdate, isActive}: IdEntryProps): JSX.Element {
 						return;
 					} else if (error instanceof Error) {
 						setStatus(error.message);
-						setStatusField(isSetIdFocused ? 'setId' : 'priority');
+						setStatusField(trueFocus(isFocused) || '');
 					} else {
 						setStatus('An unknown error occurred');
-						setStatusField(isSetIdFocused ? 'setId' : 'priority');
+						setStatusField(trueFocus(isFocused) || '');
 					}
 				} finally {
 					setIsLoading(false);
 				}
-			} else if (isPartIdFocused || isQuantityFocused) {
+			} else if (isFocused.partId || isFocused.quantity) {
 				setIsLoading(true);
 				setStatus('Processing...');
 				setStatusField('partId');
@@ -341,7 +320,6 @@ function _IdEntry({onAllocationUpdate, isActive}: IdEntryProps): JSX.Element {
 					onAllocationUpdate(allocationResult, partId);
 					setPartId('');
 					setQuantity('1');
-					setRecognitionConfidence(0);
 					if (setId) {
 						setSetId('');
 						setStatus(`Part added to set ${setId} successfully`);
@@ -351,10 +329,10 @@ function _IdEntry({onAllocationUpdate, isActive}: IdEntryProps): JSX.Element {
 				} catch (error) {
 					if (error instanceof Error) {
 						setStatus(error.message);
-						setStatusField(isPartIdFocused ? 'partId' : 'quantity');
+						setStatusField(trueFocus(isFocused) || '');
 					} else {
 						setStatus('An unknown error occurred');
-						setStatusField(isPartIdFocused ? 'partId' : 'quantity');
+						setStatusField(trueFocus(isFocused) || '');
 					}
 				} finally {
 					setIsLoading(false);
@@ -453,14 +431,6 @@ function _IdEntry({onAllocationUpdate, isActive}: IdEntryProps): JSX.Element {
 				</Box>
 			</Box>
 
-			{recognitionConfidence > 0 && (
-				<Box marginTop={1}>
-					<Text dimColor>
-						Recognition confidence: {Math.round(recognitionConfidence * 100)}%
-					</Text>
-				</Box>
-			)}
-
 			<Box height={1}>
 				{(statusField === 'partId' || statusField === 'quantity') && status && (
 					<>
@@ -484,7 +454,7 @@ function _IdEntry({onAllocationUpdate, isActive}: IdEntryProps): JSX.Element {
 
 			{setId &&
 				partId &&
-				(isPartIdFocused || isQuantityFocused) &&
+				(isFocused.partId || isFocused.quantity) &&
 				!isColorSelectionActive && (
 					<Box marginTop={1}>
 						<Text dimColor>
@@ -500,6 +470,7 @@ function _IdEntry({onAllocationUpdate, isActive}: IdEntryProps): JSX.Element {
 				isEnabled={
 					!isLoading && !isColorSelectionActive && !isGuessSelectionActive
 				}
+				isActive={isActive}
 			/>
 
 			<Box marginTop={1}>

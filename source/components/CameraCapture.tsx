@@ -19,14 +19,11 @@ const SIMILARITY_THRESHOLD = parseFloat(
 );
 
 interface CameraCaptureProps {
-	onPartRecognized: (
-		elementId: string,
-		partName: string,
-		confidence: number,
-	) => void;
+	onPartRecognized: (elementId: string) => void;
 	onColorSelectionChange: (isActive: boolean) => void;
 	onGuessSelectionChange: (isActive: boolean) => void;
 	isEnabled: boolean;
+	isActive: boolean;
 }
 
 export default function CameraCapture({
@@ -34,12 +31,12 @@ export default function CameraCapture({
 	onColorSelectionChange,
 	onGuessSelectionChange,
 	isEnabled,
+	isActive,
 }: CameraCaptureProps) {
 	const db = useDatabase();
 	const [isCapturing, setIsCapturing] = useState(false);
 	const [isLoadingColors, setIsLoadingColors] = useState(false);
 	const [status, setStatus] = useState('');
-	const [lastCapture, setLastCapture] = useState<Buffer | null>(null);
 	const [recognizedPart, setRecognizedPart] = useState<{
 		partNumber: string;
 		name: string;
@@ -121,7 +118,7 @@ export default function CameraCapture({
 	};
 
 	const handleImageCapture = async () => {
-		if (!isEnabled || isCapturing) return;
+		if (!isEnabled || !isActive || isCapturing) return;
 
 		setIsCapturing(true);
 		setStatus('Capturing image...');
@@ -131,7 +128,6 @@ export default function CameraCapture({
 
 		try {
 			const imageBuffer = await captureImage();
-			setLastCapture(imageBuffer);
 			setStatus('Image captured, recognizing part...');
 
 			const results = await recognizePart(imageBuffer);
@@ -196,15 +192,15 @@ export default function CameraCapture({
 	const handleColorSelect = (item: {value: number}) => {
 		const selectedColor = availableColors.find(c => c.color_id === item.value);
 		if (recognizedPart && selectedColor) {
-			onPartRecognized(
-				selectedColor.elements[0]!,
-				`${recognizedPart.name} (${selectedColor.color_name})`,
-				recognizedPart.confidence,
-			);
+			onPartRecognized(selectedColor.elements[0]!);
 			setColorSelectionState(false);
 			setRecognizedPart(null);
 			setAvailableColors([]);
-			setStatus('Part and color selected!');
+			setStatus(
+				`Part and color selected! (${Math.round(
+					recognizedPart.confidence * 100,
+				)}% confidence)`,
+			);
 		}
 	};
 
@@ -226,6 +222,8 @@ export default function CameraCapture({
 	};
 
 	useInput(async (input, key) => {
+		if (!isActive) return;
+
 		if (input === ' ') {
 			await handleImageCapture();
 		} else if (showColorSelection && key.escape) {
@@ -241,7 +239,7 @@ export default function CameraCapture({
 	return (
 		<Box flexDirection="column" marginTop={1}>
 			{(isCapturing || isLoadingColors || status) && (
-				<Box marginTop={1}>
+				<Box>
 					{isCapturing || isLoadingColors ? (
 						<Text>
 							<Text color="green">
@@ -268,7 +266,6 @@ export default function CameraCapture({
 			{showGuessSelection && guesses.length && (
 				<Box
 					flexDirection="column"
-					marginTop={1}
 					borderStyle="round"
 					borderColor="blue"
 					padding={1}
@@ -283,6 +280,7 @@ export default function CameraCapture({
 							value: guess.id,
 						}))}
 						onSelect={handleGuessSelect}
+						isFocused={isActive}
 					/>
 				</Box>
 			)}
@@ -290,7 +288,6 @@ export default function CameraCapture({
 			{showColorSelection && availableColors.length > 0 && (
 				<Box
 					flexDirection="column"
-					marginTop={1}
 					borderStyle="round"
 					borderColor="blue"
 					padding={1}
@@ -303,13 +300,8 @@ export default function CameraCapture({
 							value: color.color_id,
 						}))}
 						onSelect={handleColorSelect}
+						isFocused={isActive}
 					/>
-				</Box>
-			)}
-
-			{lastCapture && !showColorSelection && !showGuessSelection && (
-				<Box marginTop={1}>
-					<Text dimColor>Last capture: {lastCapture.length} bytes</Text>
 				</Box>
 			)}
 		</Box>

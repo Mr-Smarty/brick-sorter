@@ -7,7 +7,6 @@ import AllocationDisplay from './components/AllocationDisplay.js';
 import {DatabaseProvider} from './context/DatabaseContext.js';
 import {Box, Text} from 'ink';
 import {Tab, Tabs} from 'ink-tab';
-import {TabGroup} from './components/TabGroup.js';
 
 type Props = {
 	dbPath: string | undefined;
@@ -41,18 +40,27 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 					align="center"
 				/>
 
-				<Box flexDirection="row" flexGrow={1}>
-					<TabGroup isActive={activeTab === 'dashboard'}>
-						<IdEntry onAllocationUpdate={handleAllocationUpdate} />
-					</TabGroup>
+				<Box
+					flexDirection="row"
+					flexGrow={1}
+					display={activeTab === 'dashboard' ? 'flex' : 'none'}
+				>
+					<IdEntry
+						onAllocationUpdate={handleAllocationUpdate}
+						isActive={activeTab === 'dashboard'}
+					/>
 					<AllocationDisplay allocations={allocations} partId={lastPartId} />
 				</Box>
 
-				<TabGroup isActive={activeTab === 'test'}>
-					<Box flexDirection="column" paddingLeft={4} minWidth={40}>
-						<Text>test</Text>
-					</Box>
-				</TabGroup>
+				<Box
+					flexDirection="column"
+					paddingLeft={4}
+					minWidth={40}
+					display={activeTab === 'test' ? 'flex' : 'none'}
+				>
+					<Text>test</Text>
+				</Box>
+
 				<Box
 					borderStyle="round"
 					borderColor="cyan"
