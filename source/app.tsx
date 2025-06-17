@@ -4,6 +4,7 @@ import setup from './utils/setup.js';
 import {DatabaseSync} from 'node:sqlite';
 import IdEntry from './components/IdEntry.js';
 import AllocationDisplay from './components/AllocationDisplay.js';
+import SetList from './components/SetList.js';
 import {DatabaseProvider} from './context/DatabaseContext.js';
 import {Box, Text} from 'ink';
 import {Tab, Tabs} from 'ink-tab';
@@ -28,6 +29,12 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 		Array<{setId: string; setName: string; allocated: number}>
 	>([]);
 	const [lastPartId, setLastPartId] = useState('');
+	const [sets, _setSets] = useState<Array<{setId: string; setName: string}>>([
+		{setId: '1234', setName: 'Set A'},
+		{setId: '5678', setName: 'Set B'},
+		{setId: '91011', setName: 'Set C'},
+		// Add more sets here
+	]);
 
 	const handleAllocationUpdate = (
 		newAllocations: Array<{setId: string; setName: string; allocated: number}>,
@@ -45,6 +52,7 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 			});
 		};
 
+		onResize();
 		process.stdout.on('resize', onResize);
 
 		return () => {
@@ -79,11 +87,11 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 
 				<Box
 					flexDirection="column"
-					paddingLeft={4}
-					minWidth={40}
-					display={activeTab === 'test' ? 'flex' : 'none'}
+					flexGrow={1}
+					padding={2}
+					display={activeTab === 'sets' ? 'flex' : 'none'}
 				>
-					<Text>test</Text>
+					<SetList sets={sets} isActive={activeTab === 'sets'} size={size} />
 				</Box>
 
 				<Box
@@ -105,7 +113,7 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 						}}
 					>
 						<Tab name="dashboard">Dashboard</Tab>
-						<Tab name="test">Test</Tab>
+						<Tab name="sets">Sets</Tab>
 					</Tabs>
 				</Box>
 				<Box justifyContent="center">
