@@ -14,19 +14,18 @@ export default function Scroller({
 	const containerRef = useRef();
 	const contentRef = useRef();
 
-	const [containerSize, setContainerSize] = useState({height: 0, width: 0});
-	const [contentSize, setContentSize] = useState({height: 0, width: 0});
+	const [containerHeight, setContainerHeight] = useState(0);
+	const [contentHeight, setContentHeight] = useState(0);
 	const [top, setTop] = useState(0);
-	const [left, setLeft] = useState(0);
 
 	const measureLayout = () => {
 		if (containerRef.current) {
 			const container = measureElement(containerRef.current);
-			setContainerSize({height: container.height, width: container.width});
+			setContainerHeight(container.height);
 		}
 		if (contentRef.current) {
 			const content = measureElement(contentRef.current);
-			setContentSize({height: content.height, width: content.width});
+			setContentHeight(content.height);
 		}
 	};
 
@@ -42,16 +41,13 @@ export default function Scroller({
 		};
 	}, []);
 
-	const maxTop = Math.max(0, contentSize.height - containerSize.height + 1);
-	const maxLeft = Math.max(0, contentSize.width - containerSize.width);
+	const maxTop = Math.max(0, contentHeight - containerHeight + 1);
 
 	useInput((_input, key) => {
 		if (!isActive) return;
 
 		if (key.downArrow) setTop(prev => Math.min(prev + 1, maxTop));
 		if (key.upArrow) setTop(prev => Math.max(prev - 1, 0));
-		if (key.rightArrow) setLeft(prev => Math.min(prev + 1, maxLeft));
-		if (key.leftArrow) setLeft(prev => Math.max(prev - 1, 0));
 	});
 
 	return (
@@ -72,12 +68,7 @@ export default function Scroller({
 					flexGrow={1}
 				>
 					<Box overflow="hidden" flexGrow={1} flexDirection="column">
-						<Box
-							marginTop={-top}
-							marginLeft={-left}
-							flexDirection="column"
-							flexShrink={0}
-						>
+						<Box marginTop={-top} flexDirection="column" flexShrink={0}>
 							{/* Actual measured content */}
 							<Box
 								// @ts-ignore
@@ -85,10 +76,6 @@ export default function Scroller({
 								flexDirection="column"
 								flexShrink={0}
 								width="auto"
-								borderTop={false}
-								borderLeft={false}
-								borderStyle="round"
-								borderColor="green"
 							>
 								{children}
 							</Box>
@@ -99,32 +86,13 @@ export default function Scroller({
 				{/* Vertical scrollbar */}
 				<Box flexShrink={0}>
 					<ScrollBar
-						containerDim={containerSize.height}
-						contentDim={contentSize.height}
+						containerDim={containerHeight}
+						contentDim={contentHeight}
 						scrollPos={top}
 						direction="vertical"
 					/>
 				</Box>
 			</Box>
-
-			{/* Horizontal scrollbar */}
-			<Box flexShrink={0}>
-				<ScrollBar
-					containerDim={containerSize.width}
-					contentDim={contentSize.width}
-					scrollPos={left}
-					direction="horizontal"
-				/>
-			</Box>
-
-			{/* Debug */}
-			<Text>
-				left:{' '}
-				<Text bold color="cyan">
-					{left}
-				</Text>{' '}
-				/ {contentSize.width - containerSize.width}
-			</Text>
 		</Box>
 	);
 }
