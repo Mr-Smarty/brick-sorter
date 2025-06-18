@@ -1,177 +1,167 @@
 // Derived from: https://github.com/gnidan/ink-scroller/
 
 import React, {useRef, useState, useEffect} from 'react';
-import {Box, Text, Spacer, useInput, measureElement} from 'ink';
-
-export type UpCommand = {type: 'up'};
-export type DownCommand = {type: 'down'};
-export type LeftCommand = {type: 'left'};
-export type RightCommand = {type: 'right'};
-
-export type Command = UpCommand | DownCommand | LeftCommand | RightCommand;
-
-export type Layout = {
-	height: number;
-	width: number;
-};
-
-export type Position = {
-	top: number;
-	left: number;
-};
-
-export interface HasOnLayout {
-	onLayout(options: {height: number; width: number; layout: any}): void;
-}
+import {Box, Text, useInput, measureElement} from 'ink';
 
 export interface Props {
-	height: number;
-	width: number;
-	size: Layout;
 	isActive: boolean;
 	children: React.ReactNode;
 }
-
-export interface FooterProps extends HasOnLayout {
-	bodyPosition: {
-		top: number;
-		left: number;
-	};
-	onCommand(options: {command: Command}): void;
-	isActive: boolean;
-}
-const Footer = (props: FooterProps) => {
-	const {
-		bodyPosition: {top, left},
-		onLayout,
-		onCommand,
-	} = props;
-
-	const ref = useRef();
-
-	useInput((input, key) => {
-		if (input === 'j' || key.downArrow) {
-			onCommand({
-				command: {type: 'down'},
-			});
-		} else if (input === 'k' || key.upArrow) {
-			onCommand({
-				command: {type: 'up'},
-			});
-		} else if (input === 'h' || key.leftArrow) {
-			onCommand({
-				command: {type: 'left'},
-			});
-		} else if (input === 'l' || key.rightArrow) {
-			onCommand({
-				command: {type: 'right'},
-			});
-		}
-	});
-
-	useEffect(() => {
-		// @ts-ignore
-		onLayout(measureElement(ref.current));
-	}, [onLayout]);
-
-	return (
-		<Box
-			// @ts-ignore
-			ref={ref}
-			borderStyle="round"
-			flexShrink={0}
-		>
-			<Spacer />
-			<Text bold>
-				top: <Text color="blue">{top}</Text>
-			</Text>
-			<Spacer />
-			<Text bold>
-				left: <Text color="blue">{left}</Text>
-			</Text>
-		</Box>
-	);
-};
-
 export default function Scroller({
-	height,
-	width,
-	size,
 	isActive,
 	children,
 }: Props): React.JSX.Element {
-	const ref = useRef();
+	const containerRef = useRef();
+	const contentRef = useRef();
 
-	const [layout, setLayout] = useState<Layout>(size);
-
-	useEffect(() => {
-		if (ref.current) {
-			// @ts-ignore
-			setLayout(measureElement(ref.current));
-		}
-	}, [size, children]);
-
-	const [footerDimensions, setFooterDimensions] = useState({
-		height: 0,
-		width: 0,
-	});
-
+	const [containerSize, setContainerSize] = useState({height: 0, width: 0});
+	const [contentSize, setContentSize] = useState({height: 0, width: 0});
 	const [top, setTop] = useState(0);
 	const [left, setLeft] = useState(0);
 
-	const handleCommand = (options: {command: Command}) => {
-		const {command} = options;
-		switch (command.type) {
-			case 'up': {
-				setTop(Math.max(0, top - 1));
-				break;
-			}
-			case 'down': {
-				setTop(Math.min(layout.height, top + 1));
-				break;
-			}
-			case 'left': {
-				setLeft(Math.max(0, left - 1));
-				break;
-			}
-			case 'right': {
-				setLeft(Math.min(layout.width, left + 1));
-				break;
-			}
+	const measureLayout = () => {
+		if (containerRef.current) {
+			const container = measureElement(containerRef.current);
+			setContainerSize({height: container.height, width: container.width});
+		}
+		if (contentRef.current) {
+			const content = measureElement(contentRef.current);
+			setContentSize({height: content.height, width: content.width});
 		}
 	};
 
+	useEffect(() => {
+		const timer = setTimeout(measureLayout, 0);
+		return () => clearTimeout(timer);
+	}, [children]);
+
+	useEffect(() => {
+		process.stdout.on('resize', measureLayout);
+		return () => {
+			process.stdout.off('resize', measureLayout);
+		};
+	}, []);
+
+	const maxTop = Math.max(0, contentSize.height - containerSize.height + 1);
+	const maxLeft = Math.max(0, contentSize.width - containerSize.width);
+
+	useInput((_input, key) => {
+		if (!isActive) return;
+
+		if (key.downArrow) setTop(prev => Math.min(prev + 1, maxTop));
+		if (key.upArrow) setTop(prev => Math.max(prev - 1, 0));
+		if (key.rightArrow) setLeft(prev => Math.min(prev + 1, maxLeft));
+		if (key.leftArrow) setLeft(prev => Math.max(prev - 1, 0));
+	});
+
 	return (
 		<Box
-			height={height}
-			width={width}
 			flexDirection="column"
 			borderStyle="round"
+			borderColor="cyan"
+			flexGrow={1}
+			width="100%"
 		>
-			<Box
-				height={layout.height - footerDimensions.height - 2}
-				width="100%"
-				flexDirection="column"
-				overflow="hidden"
-			>
+			<Box flexDirection="row" flexGrow={1}>
+				{/* Scrollable container */}
 				<Box
 					// @ts-ignore
-					ref={ref}
-					flexShrink={0}
+					ref={containerRef}
+					overflow="hidden"
 					flexDirection="column"
-					marginTop={-top}
-					marginLeft={-left}
-					width="100%"
+					flexGrow={1}
 				>
-					{children}
+					<Box overflow="hidden" flexGrow={1} flexDirection="column">
+						<Box
+							marginTop={-top}
+							marginLeft={-left}
+							flexDirection="column"
+							flexShrink={0}
+						>
+							{/* Actual measured content */}
+							<Box
+								// @ts-ignore
+								ref={contentRef}
+								flexDirection="column"
+								flexShrink={0}
+								width="auto"
+								borderTop={false}
+								borderLeft={false}
+								borderStyle="round"
+								borderColor="green"
+							>
+								{children}
+							</Box>
+						</Box>
+					</Box>
+				</Box>
+
+				{/* Vertical scrollbar */}
+				<Box flexShrink={0}>
+					<ScrollBar
+						containerDim={containerSize.height}
+						contentDim={contentSize.height}
+						scrollPos={top}
+						direction="vertical"
+					/>
 				</Box>
 			</Box>
-			<Footer
-				onLayout={setFooterDimensions}
-				onCommand={handleCommand}
-				bodyPosition={{top, left}}
-				isActive={isActive}
-			/>
+
+			{/* Horizontal scrollbar */}
+			<Box flexShrink={0}>
+				<ScrollBar
+					containerDim={containerSize.width}
+					contentDim={contentSize.width}
+					scrollPos={left}
+					direction="horizontal"
+				/>
+			</Box>
+
+			{/* Debug */}
+			<Text>
+				left:{' '}
+				<Text bold color="cyan">
+					{left}
+				</Text>{' '}
+				/ {contentSize.width - containerSize.width}
+			</Text>
 		</Box>
 	);
 }
+
+interface ScrollBarProps {
+	containerDim: number;
+	contentDim: number;
+	scrollPos: number;
+	direction: 'vertical' | 'horizontal';
+}
+export const ScrollBar = ({
+	containerDim,
+	contentDim,
+	scrollPos,
+	direction,
+}: ScrollBarProps) => {
+	const scrollRatio = contentDim > 0 ? containerDim / contentDim : 1;
+	const thumbDim = Math.max(1, Math.floor(scrollRatio * containerDim));
+	const thumbPos = Math.min(
+		containerDim - thumbDim,
+		Math.floor(scrollPos * scrollRatio),
+	);
+
+	return (
+		<Box
+			flexDirection={direction === 'vertical' ? 'column' : 'row'}
+			marginLeft={direction === 'vertical' ? 1 : 0}
+			marginTop={direction === 'horizontal' ? 1 : 0}
+		>
+			{Array.from({length: containerDim}, (_, i) => (
+				<Text
+					key={i}
+					color={i >= thumbPos && i < thumbPos + thumbDim ? 'cyan' : 'gray'}
+				>
+					{direction === 'vertical' ? '│' : '─'}
+				</Text>
+			))}
+		</Box>
+	);
+};

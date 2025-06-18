@@ -32,7 +32,22 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 	const [sets, _setSets] = useState<Array<{setId: string; setName: string}>>([
 		{setId: '1234', setName: 'Set A'},
 		{setId: '5678', setName: 'Set B'},
-		{setId: '91011', setName: 'Set C'},
+		{setId: '12341', setName: 'Set D'},
+		{setId: '91011', setName: 'Set E'},
+		{setId: '12342', setName: 'Set F'},
+		{setId: '12343', setName: 'Set G'},
+		{setId: '12344', setName: 'Set H'},
+		{setId: '12345', setName: 'Set I'},
+		{setId: '12346', setName: 'Set J'},
+		{setId: '12347', setName: 'Set K'},
+		{setId: '12348', setName: 'Set L'},
+		{setId: '12349', setName: 'Set M'},
+		{setId: '12350', setName: 'Set N'},
+		{setId: '12351', setName: 'Set O'},
+		{setId: '12352', setName: 'Set P'},
+		{setId: '12353', setName: 'Set Q'},
+		{setId: '12354', setName: 'Set R'},
+		{setId: '12355', setName: 'Set S'},
 		// Add more sets here
 	]);
 
@@ -91,7 +106,7 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 					padding={2}
 					display={activeTab === 'sets' ? 'flex' : 'none'}
 				>
-					<SetList sets={sets} isActive={activeTab === 'sets'} size={size} />
+					<SetList sets={sets} isActive={activeTab === 'sets'} />
 				</Box>
 
 				<Box
