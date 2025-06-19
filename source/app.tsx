@@ -103,7 +103,6 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 				<Box
 					flexDirection="column"
 					flexGrow={1}
-					padding={2}
 					display={activeTab === 'sets' ? 'flex' : 'none'}
 				>
 					<SetList sets={sets} isActive={activeTab === 'sets'} />

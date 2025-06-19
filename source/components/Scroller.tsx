@@ -1,7 +1,49 @@
-// Derived from: https://github.com/gnidan/ink-scroller/
-
-import React, {useRef, useState, useEffect} from 'react';
+import React, {
+	useReducer,
+	useRef,
+	useEffect,
+	useState,
+	useLayoutEffect,
+} from 'react';
 import {Box, Text, useInput, measureElement} from 'ink';
+
+const reducer = (state: any, action: any) => {
+	switch (action.type) {
+		case 'SET_HEIGHT':
+			return {
+				...state,
+				height: action.height,
+			};
+
+		case 'SET_INNER_HEIGHT':
+			return {
+				...state,
+				innerHeight: action.innerHeight,
+			};
+
+		case 'SCROLL_DOWN':
+			const maxScroll = Math.max(0, state.innerHeight - state.height);
+			return {
+				...state,
+				scrollTop: Math.min(state.scrollTop + 1, maxScroll),
+			};
+
+		case 'SCROLL_UP':
+			return {
+				...state,
+				scrollTop: Math.max(state.scrollTop - 1, 0),
+			};
+
+		case 'SET_SCROLL_TOP':
+			return {
+				...state,
+				scrollTop: action.scrollTop,
+			};
+
+		default:
+			return state;
+	}
+};
 
 export interface Props {
 	isActive: boolean;
@@ -11,84 +53,127 @@ export default function Scroller({
 	isActive,
 	children,
 }: Props): React.JSX.Element {
-	const containerRef = useRef();
-	const contentRef = useRef();
+	const [state, dispatch] = useReducer(reducer, {
+		height: 0,
+		scrollTop: 0,
+		innerHeight: 0,
+	});
+	const [hasRendered, setHasRendered] = useState(false);
 
-	const [containerHeight, setContainerHeight] = useState(0);
-	const [contentHeight, setContentHeight] = useState(0);
-	const [top, setTop] = useState(0);
+	const wrapperRef = useRef();
+	const innerRef = useRef();
 
-	const measureLayout = () => {
-		if (containerRef.current) {
-			const container = measureElement(containerRef.current);
-			setContainerHeight(container.height);
+	// Track when the tab becomes visible
+	useLayoutEffect(() => {
+		if (isActive) {
+			setHasRendered(true);
 		}
-		if (contentRef.current) {
-			const content = measureElement(contentRef.current);
-			setContentHeight(content.height);
-		}
-	};
+	}, [isActive]);
 
+	// Initial layout measurement after content has rendered
+	useLayoutEffect(() => {
+		if (!isActive) return;
+
+		process.nextTick(() => {
+			setTimeout(() => {
+				if (wrapperRef.current && innerRef.current) {
+					const wrapperBox = measureElement(wrapperRef.current);
+					const innerBox = measureElement(innerRef.current);
+
+					dispatch({
+						type: 'SET_HEIGHT',
+						height: Math.max(0, wrapperBox.height - 2), // subtract for border
+					});
+					dispatch({
+						type: 'SET_INNER_HEIGHT',
+						innerHeight: innerBox.height,
+					});
+				}
+			}, 0);
+		});
+	}, [isActive, children]);
+
+	// Redundant safety measurement after first render completes
 	useEffect(() => {
-		const timer = setTimeout(measureLayout, 0);
+		if (!isActive || !hasRendered) return;
+
+		const timer = setTimeout(() => {
+			if (wrapperRef.current && innerRef.current) {
+				const wrapperBox = measureElement(wrapperRef.current);
+				const innerBox = measureElement(innerRef.current);
+
+				dispatch({
+					type: 'SET_HEIGHT',
+					height: Math.max(0, wrapperBox.height - 2),
+				});
+				dispatch({
+					type: 'SET_INNER_HEIGHT',
+					innerHeight: innerBox.height,
+				});
+			}
+		}, 10);
+
 		return () => clearTimeout(timer);
-	}, [children]);
+	}, [hasRendered, isActive, children]);
 
 	useEffect(() => {
-		process.stdout.on('resize', measureLayout);
-		return () => {
-			process.stdout.off('resize', measureLayout);
-		};
-	}, []);
-
-	const maxTop = Math.max(0, contentHeight - containerHeight + 1);
+		const maxScroll = Math.max(0, state.innerHeight - state.height);
+		if (state.scrollTop > maxScroll)
+			dispatch({type: 'SET_SCROLL_TOP', scrollTop: maxScroll});
+	}, [state.innerHeight, state.height]);
 
 	useInput((_input, key) => {
 		if (!isActive) return;
 
-		if (key.downArrow) setTop(prev => Math.min(prev + 1, maxTop));
-		if (key.upArrow) setTop(prev => Math.max(prev - 1, 0));
+		if (key.downArrow) {
+			dispatch({
+				type: 'SCROLL_DOWN',
+			});
+		}
+
+		if (key.upArrow) {
+			dispatch({
+				type: 'SCROLL_UP',
+			});
+		}
 	});
 
 	return (
 		<Box
+			// @ts-ignore
+			ref={wrapperRef}
 			flexDirection="column"
 			borderStyle="round"
 			borderColor="cyan"
 			flexGrow={1}
 			width="100%"
+			minHeight={1}
 		>
-			<Box flexDirection="row" flexGrow={1}>
+			<Box flexDirection="row" flexGrow={1} width="100%">
 				{/* Scrollable container */}
 				<Box
-					// @ts-ignore
-					ref={containerRef}
+					height={state.height}
 					overflow="hidden"
 					flexDirection="column"
-					flexGrow={1}
+					width="100%"
 				>
-					<Box overflow="hidden" flexGrow={1} flexDirection="column">
-						<Box marginTop={-top} flexDirection="column" flexShrink={0}>
-							{/* Actual measured content */}
-							<Box
-								// @ts-ignore
-								ref={contentRef}
-								flexDirection="column"
-								flexShrink={0}
-								width="auto"
-							>
-								{children}
-							</Box>
-						</Box>
+					<Box
+						// @ts-ignore
+						ref={innerRef}
+						flexDirection="column"
+						flexShrink={0}
+						marginTop={state.innerHeight > state.height ? -state.scrollTop : 0}
+					>
+						{children}
 					</Box>
 				</Box>
 
 				{/* Vertical scrollbar */}
 				<Box flexShrink={0}>
 					<ScrollBar
-						containerDim={containerHeight}
-						contentDim={contentHeight}
-						scrollPos={top}
+						containerDim={state.height}
+						contentDim={state.innerHeight}
+						scrollPos={state.scrollTop}
 						direction="vertical"
 					/>
 				</Box>
@@ -109,13 +194,21 @@ export const ScrollBar = ({
 	scrollPos,
 	direction,
 }: ScrollBarProps) => {
-	const scrollRatio = contentDim > 0 ? containerDim / contentDim : 1;
-	const thumbDim = Math.max(1, Math.floor(scrollRatio * containerDim));
-	const thumbPos = Math.min(
-		containerDim - thumbDim,
-		Math.floor(scrollPos * scrollRatio),
-	);
+	const scrollable = contentDim > containerDim;
+	const scrollRatio = containerDim / contentDim;
+	const thumbDim = scrollable
+		? Math.max(1, Math.floor(scrollRatio * containerDim))
+		: containerDim;
 
+	const maxThumbPos = containerDim - thumbDim;
+
+	let thumbPos = 0;
+	if (scrollable) {
+		const relativeScroll = scrollPos / (contentDim - containerDim);
+		thumbPos = Math.floor(relativeScroll * maxThumbPos);
+
+		if (scrollPos > 0 && thumbPos === 0 && maxThumbPos > 0) thumbPos = 1;
+	}
 	return (
 		<Box
 			flexDirection={direction === 'vertical' ? 'column' : 'row'}
