@@ -44,10 +44,15 @@ export default function SetList({isActive}: SetListProps): React.JSX.Element {
 							justifyContent="space-between"
 						>
 							<Box flexDirection="row">
-								<Text color="green">{index + 1}. </Text>
-								<Text>{`${set.name} (ID: ${set.id})`}</Text>
+								<Box flexShrink={0}>
+									<Text color="green">{`${index + 1}. `}</Text>
+								</Box>
+								<Text wrap="truncate">{set.name}</Text>
+								<Box flexShrink={0}>
+									<Text>{` (ID: ${set.id}) `}</Text>
+								</Box>
 							</Box>
-							<Box flexDirection="row">
+							<Box flexDirection="row" flexShrink={0}>
 								<Text>|</Text>
 								<Gradient name="retro">
 									<ProgressBar
