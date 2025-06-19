@@ -1,16 +1,30 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
+import {useDatabase} from '../context/DatabaseContext.js';
 import {Box, Text} from 'ink';
 import Scroller from './Scroller.js';
+import ProgressBar from './ProgressBar.js';
+import type {Set} from '../types/typings.js';
+import Gradient from 'ink-gradient';
 
 type SetListProps = {
-	sets: Array<{setId: string; setName: string}>;
 	isActive: boolean;
 };
 
-export default function SetList({
-	sets,
-	isActive,
-}: SetListProps): React.JSX.Element {
+export default function SetList({isActive}: SetListProps): React.JSX.Element {
+	const db = useDatabase();
+	const [sets, setSets] = useState<Array<Set>>([]);
+
+	useEffect(() => {
+		if (isActive) {
+			const fetchedSets = db
+				.prepare(
+					'SELECT id, name, completion FROM lego_sets ORDER BY priority ASC',
+				)
+				.all() as Array<Set>;
+			setSets(fetchedSets);
+		}
+	}, [isActive, db]);
+
 	return (
 		<Box flexDirection="column" flexGrow={1}>
 			<Box flexShrink={0} marginBottom={1}>
@@ -23,15 +37,29 @@ export default function SetList({
 				<Scroller isActive={isActive}>
 					{sets.map((set, index) => (
 						<Box
-							key={set.setId}
+							key={set.id}
 							flexDirection="row"
 							flexShrink={0}
-							width="auto"
+							width="100%"
+							justifyContent="space-between"
 						>
-							<Text color="green">{index + 1}. </Text>
-							<Text>
-								{set.setName} (ID: {set.setId})
-							</Text>
+							<Box flexDirection="row">
+								<Text color="green">{index + 1}. </Text>
+								<Text>{`${set.name} (ID: ${set.id})`}</Text>
+							</Box>
+							<Box flexDirection="row">
+								<Text>|</Text>
+								<Gradient name="retro">
+									<ProgressBar
+										percent={set.completion}
+										width="25%"
+										minWidth={30}
+										rightPad={true}
+										rightPadCharacter=" "
+									/>
+								</Gradient>
+								<Text>| {(set.completion * 100).toFixed(1)}%</Text>
+							</Box>
 						</Box>
 					))}
 				</Scroller>

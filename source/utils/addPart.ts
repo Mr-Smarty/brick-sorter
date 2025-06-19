@@ -1,5 +1,6 @@
 import {DatabaseSync} from 'node:sqlite';
 import {Part} from '../types/typings.js';
+import updateSetCompletion from './updateSetCompletion.js';
 
 export async function addPart(
 	db: DatabaseSync,
@@ -76,6 +77,8 @@ export async function addPart(
 				toAllocate,
 				partNumber,
 			);
+
+			updateSetCompletion(db, setId);
 
 			db.exec('COMMIT');
 
@@ -185,6 +188,10 @@ export async function addPart(
 			throw new Error(
 				`Part ${partNumber} is not needed for any sets. ${remainingQuantity} parts not added.`,
 			);
+		}
+
+		for (const allocation of allocations) {
+			updateSetCompletion(db, allocation.setId);
 		}
 
 		db.exec('COMMIT');

@@ -5,7 +5,8 @@ export function setup(db: DatabaseSync) {
 		`CREATE TABLE IF NOT EXISTS lego_sets (
             id STRING PRIMARY KEY,
             name TEXT NOT NULL,
-            priority INTEGER NOT NULL
+            priority INTEGER NOT NULL,
+            completion REAL NOT NULL DEFAULT 0
         );
         
         CREATE TABLE IF NOT EXISTS parts (

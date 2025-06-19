@@ -8,6 +8,7 @@ export interface Set {
 	id: string;
 	name: string;
 	priority: number;
+	completion: number;
 }
 
 export interface PartColor {
