@@ -4,8 +4,10 @@ import React, {
 	useEffect,
 	useState,
 	useLayoutEffect,
+	forwardRef,
+	useImperativeHandle,
 } from 'react';
-import {Box, Text, useInput, measureElement} from 'ink';
+import {Box, Text, useInput, measureElement, Key} from 'ink';
 
 const reducer = (state: any, action: any) => {
 	switch (action.type) {
@@ -48,20 +50,33 @@ const reducer = (state: any, action: any) => {
 export interface Props {
 	isActive: boolean;
 	children: React.ReactNode;
+	characters?: string | [string, string];
+	keys?: [keyof Key, keyof Key];
 }
-export default function Scroller({
-	isActive,
-	children,
-}: Props): React.JSX.Element {
+export default forwardRef(function Scroller(
+	{isActive, children, keys = ['upArrow', 'downArrow'], characters}: Props,
+	ref: React.Ref<{setScroll: (pos: number) => void}>,
+): React.JSX.Element {
 	const [state, dispatch] = useReducer(reducer, {
 		height: 0,
 		scrollTop: 0,
 		innerHeight: 0,
 	});
-	const [hasRendered, setHasRendered] = useState(false);
+	const [_hasRendered, setHasRendered] = useState(false);
 
 	const wrapperRef = useRef();
 	const innerRef = useRef();
+
+	// Expose resetScroll function via ref
+	useImperativeHandle(ref, () => ({
+		setScroll: (pos: number) => {
+			if (pos < 0) pos = 0;
+			else if (pos > state.innerHeight - state.height)
+				pos = Math.max(0, state.innerHeight - state.height);
+
+			dispatch({type: 'SET_SCROLL_TOP', scrollTop: pos});
+		},
+	}));
 
 	// Track when the tab becomes visible
 	useLayoutEffect(() => {
@@ -93,29 +108,6 @@ export default function Scroller({
 		});
 	}, [isActive, children]);
 
-	// Redundant safety measurement after first render completes
-	useEffect(() => {
-		if (!isActive || !hasRendered) return;
-
-		const timer = setTimeout(() => {
-			if (wrapperRef.current && innerRef.current) {
-				const wrapperBox = measureElement(wrapperRef.current);
-				const innerBox = measureElement(innerRef.current);
-
-				dispatch({
-					type: 'SET_HEIGHT',
-					height: Math.max(0, wrapperBox.height - 2),
-				});
-				dispatch({
-					type: 'SET_INNER_HEIGHT',
-					innerHeight: innerBox.height,
-				});
-			}
-		}, 10);
-
-		return () => clearTimeout(timer);
-	}, [hasRendered, isActive, children]);
-
 	useEffect(() => {
 		const maxScroll = Math.max(0, state.innerHeight - state.height);
 		if (state.scrollTop > maxScroll)
@@ -125,15 +117,15 @@ export default function Scroller({
 	useInput((_input, key) => {
 		if (!isActive) return;
 
-		if (key.downArrow) {
+		if (key[keys[0]]) {
 			dispatch({
-				type: 'SCROLL_DOWN',
+				type: 'SCROLL_UP',
 			});
 		}
 
-		if (key.upArrow) {
+		if (key[keys[1]]) {
 			dispatch({
-				type: 'SCROLL_UP',
+				type: 'SCROLL_DOWN',
 			});
 		}
 	});
@@ -175,24 +167,27 @@ export default function Scroller({
 						contentDim={state.innerHeight}
 						scrollPos={state.scrollTop}
 						direction="vertical"
+						characters={characters}
 					/>
 				</Box>
 			</Box>
 		</Box>
 	);
-}
+});
 
 interface ScrollBarProps {
 	containerDim: number;
 	contentDim: number;
 	scrollPos: number;
 	direction: 'vertical' | 'horizontal';
+	characters?: string | [string, string];
 }
 export const ScrollBar = ({
 	containerDim,
 	contentDim,
 	scrollPos,
 	direction,
+	characters = direction === 'vertical' ? '│' : '─',
 }: ScrollBarProps) => {
 	const scrollable = contentDim > containerDim;
 	const scrollRatio = containerDim / contentDim;
@@ -220,7 +215,11 @@ export const ScrollBar = ({
 					key={i}
 					color={i >= thumbPos && i < thumbPos + thumbDim ? 'cyan' : 'gray'}
 				>
-					{direction === 'vertical' ? '│' : '─'}
+					{typeof characters === 'string'
+						? characters
+						: i >= thumbPos && i < thumbPos + thumbDim
+						? characters[0]
+						: characters[1]}
 				</Text>
 			))}
 		</Box>

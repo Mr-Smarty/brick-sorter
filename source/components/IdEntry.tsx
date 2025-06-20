@@ -8,9 +8,9 @@ import React, {
 import {Text, Box, useFocus, useFocusManager, useInput} from 'ink';
 import TextInput from 'ink-text-input';
 import {useDatabase} from '../context/DatabaseContext.js';
-import addSet from '../utils/addSet.js';
-import addPart from '../utils/addPart.js';
-import fixPriorities from '../utils/fixPriorities.js';
+import addSet from '../util/addSet.js';
+import addPart from '../util/addPart.js';
+import fixPriorities from '../util/fixPriorities.js';
 import CameraCapture from './CameraCapture.js';
 import Spinner from 'ink-spinner';
 import type {InventoryPart} from '@rebrickableapi/types/data/inventory-part';
@@ -457,7 +457,7 @@ export default function IdEntry({
 				(isFocused.partId || isFocused.quantity) &&
 				!isColorSelectionActive && (
 					<Box marginTop={1}>
-						<Text dimColor>
+						<Text color="gray">
 							Both set and part entered - will add part directly to set {setId}
 						</Text>
 					</Box>
@@ -474,7 +474,7 @@ export default function IdEntry({
 			/>
 
 			<Box marginTop={1}>
-				<Text dimColor>
+				<Text color="gray">
 					{isColorSelectionActive
 						? 'Color selection active - other inputs disabled'
 						: 'Use arrow keys to navigate • Enter to submit'}

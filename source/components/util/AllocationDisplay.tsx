@@ -20,7 +20,7 @@ export default function AllocationDisplay({
 		return (
 			<Box flexDirection="column" paddingLeft={4} minWidth={40}>
 				<Text bold>Part Allocation</Text>
-				<Text dimColor>Add a part to see allocation details</Text>
+				<Text color="gray">Add a part to see allocation details</Text>
 			</Box>
 		);
 	}
@@ -38,7 +38,7 @@ export default function AllocationDisplay({
 						</Text>
 					</Box>
 					<Box paddingLeft={4}>
-						<Text dimColor>Quantity: {allocation.allocated}</Text>
+						<Text color="gray">Quantity: {allocation.allocated}</Text>
 					</Box>
 					{index < allocations.length - 1 && <Box height={1} />}
 				</Box>

@@ -49,16 +49,16 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 	const getString = (): string => {
 		const screenWidth = calculateWidth();
 		const availableSpace = screenWidth - right - left;
-		const filledWidth = Math.min(
-			Math.floor(availableSpace * percent),
-			availableSpace,
-		);
-		const bar = character.repeat(filledWidth);
 
-		if (!rightPad) {
-			return bar;
+		let filledWidth = Math.max(1, Math.floor(availableSpace * percent));
+
+		if (percent < 1 && filledWidth === availableSpace) {
+			filledWidth = availableSpace - 1;
 		}
 
+		const bar = character.repeat(filledWidth);
+
+		if (!rightPad) return bar;
 		return bar + rightPadCharacter.repeat(availableSpace - filledWidth);
 	};
 

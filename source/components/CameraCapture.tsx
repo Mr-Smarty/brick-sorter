@@ -1,13 +1,13 @@
 import React, {useState} from 'react';
 import {Text, Box, useInput} from 'ink';
 import Spinner from 'ink-spinner';
-import {captureImage} from '../utils/camera.js';
-import {recognizePart} from '../utils/brickognizeApi.js';
-import {getPartColors} from '../utils/rebrickableApi.js';
+import {captureImage} from '../util/camera.js';
+import {recognizePart} from '../util/brickognizeApi.js';
+import {getPartColors} from '../util/rebrickableApi.js';
 import {PartColor} from '../types/typings.js';
 import {useDatabase} from '../context/DatabaseContext.js';
 import SelectInput from 'ink-select-input';
-import type {BrickognizeItem} from '../utils/brickognizeApi.js';
+import type {BrickognizeItem} from '../util/brickognizeApi.js';
 
 import {config} from 'dotenv';
 config({path: new URL('../../.env', import.meta.url)});

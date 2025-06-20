@@ -1,9 +1,9 @@
 import React, {useEffect, useState} from 'react';
-import BigTextFlex from './components/BigTextFlex.js';
-import setup from './utils/setup.js';
+import BigTextFlex from './components/util/BigTextFlex.js';
+import setup from './util/setup.js';
 import {DatabaseSync} from 'node:sqlite';
 import IdEntry from './components/IdEntry.js';
-import AllocationDisplay from './components/AllocationDisplay.js';
+import AllocationDisplay from './components/util/AllocationDisplay.js';
 import SetList from './components/SetList.js';
 import {DatabaseProvider} from './context/DatabaseContext.js';
 import {Box, Text} from 'ink';
@@ -110,7 +110,7 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 					</Tabs>
 				</Box>
 				<Box justifyContent="center">
-					<Text dimColor>← shift+tab | tab →</Text>
+					<Text color="gray">Shift+Tab | Tab</Text>
 				</Box>
 			</Box>
 		</DatabaseProvider>

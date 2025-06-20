@@ -85,14 +85,14 @@ export default function ElementSelector({
 			<Text>
 				Part: {data.part.part.name} ({data.part.part.part_num})
 			</Text>
-			<Text dimColor>Part image: {data.part.part.part_img_url}</Text>
-			<Text dimColor>
+			<Text color="gray">Part image: {data.part.part.part_img_url}</Text>
+			<Text color="gray">
 				Instructions: https://rebrickable.com/instructions/{data.set.set_num}/
 			</Text>
 			<Box height={1} />
 			<SelectInput items={items} onSelect={handleSelect} isFocused={isActive} />
 			<Box height={1} />
-			<Text dimColor>
+			<Text color="gray">
 				Use arrow keys to navigate • Enter to select • Esc to cancel entire set
 			</Text>
 		</Box>
