@@ -4,9 +4,9 @@ import Spinner from 'ink-spinner';
 import {captureImage} from '../util/camera.js';
 import {recognizePart} from '../util/brickognizeApi.js';
 import {getPartColors} from '../util/rebrickableApi.js';
-import {PartColor} from '../types/typings.js';
 import {useDatabase} from '../context/DatabaseContext.js';
 import SelectInput from 'ink-select-input';
+import type {PartColor} from '../types/typings.js';
 import type {BrickognizeItem} from '../util/brickognizeApi.js';
 
 import {config} from 'dotenv';

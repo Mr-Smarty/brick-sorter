@@ -1,6 +1,6 @@
 import {DatabaseSync} from 'node:sqlite';
-import {Part} from '../types/typings.js';
 import updateSetCompletion from './updateSetCompletion.js';
+import type {Part} from '../types/typings.js';
 
 /**
  * Validates and normalizes BrickLink part numbers.

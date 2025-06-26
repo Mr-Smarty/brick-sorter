@@ -3,9 +3,9 @@ import {useDatabase} from '../context/DatabaseContext.js';
 import {Box, Text, useInput} from 'ink';
 import Scroller from './util/Scroller.js';
 import ProgressBar from './util/ProgressBar.js';
-import type {Set} from '../types/typings.js';
 import Gradient from 'ink-gradient';
 import PaginationDisplay from './util/PaginationDisplay.js';
+import type {Set} from '../types/typings.js';
 
 type SetListProps = {
 	isActive: boolean;
