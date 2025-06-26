@@ -19,7 +19,7 @@ const SIMILARITY_THRESHOLD = parseFloat(
 );
 
 interface CameraCaptureProps {
-	onPartRecognized: (elementId: string) => void;
+	onPartRecognized: (elementId: string, colorId: number) => void;
 	onColorSelectionChange: (isActive: boolean) => void;
 	onGuessSelectionChange: (isActive: boolean) => void;
 	isEnabled: boolean;
@@ -57,46 +57,36 @@ export default function CameraCapture({
 		onGuessSelectionChange(active);
 	};
 
-	const loadAndShowColors = async (partId: string) => {
+	const loadAndShowColors = async (partNumber: string) => {
 		setIsLoadingColors(true);
 		setStatus('Loading available colors...');
 		try {
-			const colors = await getPartColors(partId);
+			const colors = await getPartColors(partNumber);
 
 			const existingColors = colors
+				.filter(color =>
+					db
+						.prepare('SELECT 1 FROM parts WHERE part_num = ? AND color_id = ?')
+						.get(partNumber, color.color_id),
+				)
 				.map(color => {
-					const uniquePrioritizedElements = Array.from(
-						new Set(
-							color.elements.filter(elementId =>
-								db.prepare('SELECT 1 FROM parts WHERE id = ?').get(elementId),
-							),
-						),
-					)
-						.map(elementId => {
-							const setPriorityRow = db
-								.prepare(
-									`SELECT s.priority FROM lego_set_parts sp
-                                JOIN lego_sets s ON sp.lego_set_id = s.id
-                                WHERE sp.part_id = ?
-                                ORDER BY s.priority ASC LIMIT 1`,
-								)
-								.get(elementId) as {priority: number} | undefined;
-							return {
-								elementId,
-								priority: setPriorityRow
-									? setPriorityRow.priority
-									: Number.MAX_SAFE_INTEGER,
-							};
-						})
-						.sort((a, b) => a.priority - b.priority)
-						.map(e => e.elementId);
+					const setPriorityRow = db
+						.prepare(
+							`SELECT s.priority FROM lego_set_parts sp
+                     		 JOIN lego_sets s ON sp.lego_set_id = s.id
+                    		 WHERE sp.part_num = ? AND sp.color_id = ?
+                     		 ORDER BY s.priority ASC LIMIT 1`,
+						)
+						.get(partNumber, color.color_id) as {priority: number} | undefined;
 
 					return {
 						...color,
-						elements: uniquePrioritizedElements,
+						priority: setPriorityRow
+							? setPriorityRow.priority
+							: Number.MAX_SAFE_INTEGER,
 					};
 				})
-				.filter(color => color.elements.length > 0);
+				.sort((a, b) => a.priority - b.priority);
 
 			setAvailableColors(existingColors);
 
@@ -192,7 +182,7 @@ export default function CameraCapture({
 	const handleColorSelect = (item: {value: number}) => {
 		const selectedColor = availableColors.find(c => c.color_id === item.value);
 		if (recognizedPart && selectedColor) {
-			onPartRecognized(selectedColor.elements[0]!);
+			onPartRecognized(recognizedPart.partNumber, selectedColor.color_id);
 			setColorSelectionState(false);
 			setRecognizedPart(null);
 			setAvailableColors([]);
@@ -296,7 +286,7 @@ export default function CameraCapture({
 					<Box height={1} />
 					<SelectInput
 						items={availableColors.map(color => ({
-							label: `${color.color_name} (${color.elements.length} elements)`,
+							label: `${color.color_name} (ID: ${color.color_id})`,
 							value: color.color_id,
 						}))}
 						onSelect={handleColorSelect}

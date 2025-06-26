@@ -2,13 +2,60 @@ import {DatabaseSync} from 'node:sqlite';
 import {Part} from '../types/typings.js';
 import updateSetCompletion from './updateSetCompletion.js';
 
+/**
+ * Validates and normalizes BrickLink part numbers.
+ * @param partNumber - The part number to validate.
+ * @returns The normalized part number if valid, or throws an error if invalid.
+ */
+export function validatePartNumber(partNumber: string): string {
+	// Regular expression for BrickLink part numbers
+	const partNumberRegex = /^\d+[a-z]?(p[bx]?\d+)?(c\d{2})?$/;
+
+	// Check if the part number matches the schema
+	if (!partNumberRegex.test(partNumber))
+		throw new Error(`Invalid part number: ${partNumber}`);
+
+	// Normalize the part number by stripping mold variant suffixes
+	return partNumber.match(/^\d+/)![0];
+}
+
+type AddPartParams =
+	| {
+			partNumber: string;
+			colorId: number;
+			elementId?: never;
+	  }
+	| {
+			elementId: string;
+			partNumber?: never;
+			colorId?: never;
+	  };
 export async function addPart(
 	db: DatabaseSync,
-	partNumber: string,
+	params: AddPartParams,
 	quantity: number = 1,
 	setId?: string,
 ): Promise<Array<{setId: string; setName: string; allocated: number}>> {
-	if (!/\d+/.test(partNumber)) throw new Error('Invalid part number');
+	let partNumber: string;
+	let colorId: number;
+
+	if ('elementId' in params && params.elementId) {
+		const element = db
+			.prepare('SELECT part_num, color_id FROM parts WHERE element_id = ?')
+			.get(params.elementId) as
+			| {part_num: string; color_id: number}
+			| undefined;
+		if (!element)
+			throw new Error(`Element ID ${params.elementId} not found in database.`);
+		partNumber = element.part_num;
+		colorId = element.color_id;
+	} else {
+		partNumber = params.partNumber!;
+		colorId = params.colorId!;
+	}
+
+	//const normalizedPartNumber = validatePartNumber(partNumber)!; TODO: implement special part allocation logic
+	if (isNaN(colorId)) throw new Error('Invalid color ID');
 
 	if (isNaN(quantity)) throw new Error('Quantity must be a number');
 	if (quantity % 1 !== 0) throw new Error('Quantity must be an integer');
@@ -16,14 +63,15 @@ export async function addPart(
 
 	// Check if part exists in the database
 	const existingPart = db
-		.prepare('SELECT id, name, quantity FROM parts WHERE id = ?')
-		.get(partNumber) as Part | undefined;
+		.prepare(
+			'SELECT part_num, color_id, name, quantity FROM parts WHERE part_num = ? AND color_id = ?',
+		)
+		.get(partNumber, colorId) as Part | undefined;
 
-	if (!existingPart) {
+	if (!existingPart)
 		throw new Error(
 			`Part ${partNumber} not found in database. Add a set containing this part first.`,
 		);
-	}
 
 	// If setId is provided, allocate directly to that set
 	if (setId) {
@@ -42,22 +90,24 @@ export async function addPart(
 		const setPartRelation = db
 			.prepare(
 				`SELECT quantity_needed, COALESCE(quantity_allocated, 0) as allocated
-                 FROM lego_set_parts 
-                 WHERE lego_set_id = ? AND part_id = ?`,
+				 FROM lego_set_parts 
+				 WHERE lego_set_id = ? AND part_num = ? AND color_id = ?`,
 			)
-			.get(setId, partNumber) as
+			.get(setId, partNumber, colorId) as
 			| {quantity_needed: number; allocated: number}
 			| undefined;
 
-		if (!setPartRelation) {
-			throw new Error(`Part ${partNumber} is not used in set ${setId}.`);
-		}
+		if (!setPartRelation)
+			throw new Error(
+				`Part ${partNumber} (color: ${colorId}) is not used in set ${setId}.`,
+			);
 
 		const stillNeeded =
 			setPartRelation.quantity_needed - setPartRelation.allocated;
-		if (stillNeeded <= 0) {
-			throw new Error(`Set ${setId} already has enough of part ${partNumber}.`);
-		}
+		if (stillNeeded <= 0)
+			throw new Error(
+				`Set ${setId} already has enough of part ${partNumber} (color: ${colorId}).`,
+			);
 
 		// Begin transaction
 		db.exec('BEGIN TRANSACTION');
@@ -68,15 +118,14 @@ export async function addPart(
 			// Update the allocated quantity for this set-part relationship
 			db.prepare(
 				`UPDATE lego_set_parts 
-                 SET quantity_allocated = quantity_allocated + ?
-                 WHERE lego_set_id = ? AND part_id = ?`,
-			).run(toAllocate, setId, partNumber);
+				 SET quantity_allocated = quantity_allocated + ?
+				 WHERE lego_set_id = ? AND part_num = ? AND color_id = ?`,
+			).run(toAllocate, setId, partNumber, colorId);
 
 			// Update global part inventory
-			db.prepare('UPDATE parts SET quantity = quantity + ? WHERE id = ?').run(
-				toAllocate,
-				partNumber,
-			);
+			db.prepare(
+				'UPDATE parts SET quantity = quantity + ? WHERE part_num = ? AND color_id = ?',
+			).run(toAllocate, partNumber, colorId);
 
 			updateSetCompletion(db, setId);
 
@@ -118,11 +167,11 @@ export async function addPart(
 					ls.name as set_name
 				FROM lego_set_parts lsp
 				JOIN lego_sets ls ON lsp.lego_set_id = ls.id
-				WHERE lsp.part_id = ?
+				WHERE lsp.part_num = ? AND lsp.color_id = ?
 				ORDER BY ls.priority ASC
 			`,
 			)
-			.all(partNumber) as Array<{
+			.all(partNumber, colorId) as Array<{
 			lego_set_id: string;
 			quantity_needed: number;
 			priority: number;
@@ -142,10 +191,10 @@ export async function addPart(
 					`
 					SELECT COALESCE(quantity_allocated, 0) as allocated
 					FROM lego_set_parts 
-					WHERE lego_set_id = ? AND part_id = ?
+					WHERE lego_set_id = ? AND part_num = ? AND color_id = ?
 				`,
 				)
-				.get(setInfo.lego_set_id, partNumber) as
+				.get(setInfo.lego_set_id, partNumber, colorId) as
 				| {allocated: number}
 				| undefined;
 
@@ -160,9 +209,9 @@ export async function addPart(
 					`
 					UPDATE lego_set_parts 
 					SET quantity_allocated = quantity_allocated + ?
-					WHERE lego_set_id = ? AND part_id = ?
+					WHERE lego_set_id = ? AND part_num = ? AND color_id = ?
 				`,
-				).run(toAllocate, setInfo.lego_set_id, partNumber);
+				).run(toAllocate, setInfo.lego_set_id, partNumber, colorId);
 
 				remainingQuantity -= toAllocate;
 				totalAllocated += toAllocate;
@@ -178,15 +227,14 @@ export async function addPart(
 
 		// Only update global inventory with parts that were actually allocated
 		finalQuantity = existingPart.quantity + totalAllocated;
-		db.prepare('UPDATE parts SET quantity = ? WHERE id = ?').run(
-			finalQuantity,
-			partNumber,
-		);
+		db.prepare(
+			'UPDATE parts SET quantity = ? WHERE part_num = ? AND color_id = ?',
+		).run(finalQuantity, partNumber, colorId);
 
 		// If no parts were allocated, throw an error
 		if (!totalAllocated) {
 			throw new Error(
-				`Part ${partNumber} is not needed for any sets. ${remainingQuantity} parts not added.`,
+				`Part ${partNumber} (color: ${colorId}) is not needed for any sets. ${remainingQuantity} parts not added.`,
 			);
 		}
 

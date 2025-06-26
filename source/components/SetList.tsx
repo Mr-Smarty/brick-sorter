@@ -34,7 +34,7 @@ export default function SetList({isActive}: SetListProps): React.JSX.Element {
 			let query: string;
 			if (sortMode === 'priority' && priorityOrder)
 				query = `SELECT id, name, completion, priority FROM lego_sets ORDER BY priority ${priorityOrder}`;
-			else if (completionOrder)
+			else if (sortMode === 'completion' && completionOrder)
 				query = `SELECT id, name, completion, priority FROM lego_sets ORDER BY completion ${completionOrder}`;
 			else query = 'SELECT id, name, completion, priority FROM lego_sets';
 

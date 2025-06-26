@@ -1,7 +1,10 @@
 export interface Part {
-	id: string;
+	part_num: string;
+	color_id: number;
 	name: string;
 	quantity: number;
+	bricklink_id?: string;
+	element_id?: string;
 }
 
 export interface Set {

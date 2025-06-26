@@ -10,21 +10,24 @@ export function setup(db: DatabaseSync) {
         );
         
         CREATE TABLE IF NOT EXISTS parts (
-            id STRING PRIMARY KEY,
+            part_num STRING NOT NULL,
+            color_id INTEGER NOT NULL,
             name TEXT NOT NULL,
             quantity INTEGER NOT NULL,
-            part_num STRING,
-            color_id INTEGER
+            bricklink_id STRING,
+            element_id STRING,
+            PRIMARY KEY (part_num, color_id)
         );
 
         CREATE TABLE IF NOT EXISTS lego_set_parts (
             lego_set_id STRING NOT NULL,
-            part_id STRING NOT NULL,
+            part_num STRING NOT NULL,
+            color_id INTEGER NOT NULL,
             quantity_needed INTEGER NOT NULL,
             quantity_allocated INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (lego_set_id) REFERENCES lego_sets(id),
-            FOREIGN KEY (part_id) REFERENCES parts(id),
-            PRIMARY KEY (lego_set_id, part_id)
+            FOREIGN KEY (part_num, color_id) REFERENCES parts(part_num, color_id),
+            PRIMARY KEY (lego_set_id, part_num, color_id)
         );`,
 	);
 }

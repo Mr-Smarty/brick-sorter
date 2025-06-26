@@ -3,7 +3,7 @@ import BigTextFlex from './components/util/BigTextFlex.js';
 import setup from './util/setup.js';
 import {DatabaseSync} from 'node:sqlite';
 import IdEntry from './components/IdEntry.js';
-import AllocationDisplay from './components/util/AllocationDisplay.js';
+import AllocationDisplay from './components/AllocationDisplay.js';
 import SetList from './components/SetList.js';
 import {DatabaseProvider} from './context/DatabaseContext.js';
 import {Box, Text} from 'ink';
@@ -28,14 +28,25 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 	const [allocations, setAllocations] = useState<
 		Array<{setId: string; setName: string; allocated: number}>
 	>([]);
-	const [lastPartId, setLastPartId] = useState('');
+	const [lastPart, setLastPart] = useState<
+		| {
+				partNumber: string;
+				colorId: number;
+		  }
+		| {elementId: string}
+	>();
 
 	const handleAllocationUpdate = (
 		newAllocations: Array<{setId: string; setName: string; allocated: number}>,
-		partId: string,
+		part:
+			| {
+					partNumber: string;
+					colorId: number;
+			  }
+			| {elementId: string},
 	) => {
 		setAllocations(newAllocations);
-		setLastPartId(partId);
+		setLastPart(part);
 	};
 
 	useEffect(() => {
@@ -76,7 +87,9 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 						onAllocationUpdate={handleAllocationUpdate}
 						isActive={activeTab === 'dashboard'}
 					/>
-					<AllocationDisplay allocations={allocations} partId={lastPartId} />
+					{lastPart && (
+						<AllocationDisplay allocations={allocations} part={lastPart} />
+					)}
 				</Box>
 
 				<Box
