@@ -38,25 +38,48 @@ export async function getSetParts(setNumber: string): Promise<InventoryPart[]> {
 	return allParts;
 }
 
+export type SetNumber = `${number}` | `${number}-${number}`;
+export function isValidSetNumber(setNumber: string): setNumber is SetNumber {
+	return /^\d+(-\d+)?$/.test(setNumber);
+}
 /**
  * Fetches details for a specific LEGO set from the Rebrickable API
  * @param setNumber The LEGO set number (e.g. "75192-1")
  * @param apiKey Your Rebrickable API key
  * @returns Promise resolving to the set name
  */
-export async function getSetDetails(setNumber: string): Promise<Set> {
+export async function getSetDetails<T extends SetNumber>(
+	setNumber: T,
+): Promise<T extends `${number}` ? Set[] : Set> {
 	if (!REBRICKABLE_API_KEY) {
 		throw new Error('REBRICKABLE_API_KEY environment variable is not set');
 	}
 
-	const endpoint = `/api/v3/lego/sets/${setNumber}/` as const;
-
 	try {
-		const response = await fetchRebrickableAPI(endpoint, {
-			key: REBRICKABLE_API_KEY,
-		});
-
-		return response;
+		if (/^\d+-\d+$/.test(setNumber)) {
+			const endpoint = `/api/v3/lego/sets/${setNumber as string}/` as const;
+			const response = await fetchRebrickableAPI(endpoint, {
+				key: REBRICKABLE_API_KEY,
+			});
+			return response as T extends `${number}` ? never : Set;
+		} else {
+			const endpoint = `/api/v3/lego/sets/?search=${
+				setNumber as string
+			}` as `/api/v3/lego/sets/`;
+			const response = await fetchRebrickableAPI(endpoint, {
+				key: REBRICKABLE_API_KEY,
+			});
+			const results = response.results.filter(
+				set =>
+					set.set_num === setNumber || set.set_num.startsWith(`${setNumber}-`),
+			);
+			if (results.length === 0) {
+				throw new RebrickableAPIError('', {
+					status: 404,
+				} as Response);
+			}
+			return results as T extends `${number}` ? Set[] : never;
+		}
 	} catch (error) {
 		throw handleError(error, [
 			{status: 404, text: `Set ${setNumber} not found`},

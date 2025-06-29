@@ -6,6 +6,7 @@ import {recognizePart} from '../util/brickognizeApi.js';
 import {getPartColors} from '../util/rebrickableApi.js';
 import {useDatabase} from '../context/DatabaseContext.js';
 import SelectInput from 'ink-select-input';
+import {parsePartNumber} from '../util/addPart.js';
 import type {PartColor} from '../types/typings.js';
 import type {BrickognizeItem} from '../util/brickognizeApi.js';
 
@@ -19,7 +20,11 @@ const SIMILARITY_THRESHOLD = parseFloat(
 );
 
 interface CameraCaptureProps {
-	onPartRecognized: (elementId: string, colorId: number) => void;
+	onPartRecognized: (
+		elementId: string,
+		colorId: number,
+		setId?: string,
+	) => void;
 	onColorSelectionChange: (isActive: boolean) => void;
 	onGuessSelectionChange: (isActive: boolean) => void;
 	isEnabled: boolean;
@@ -41,6 +46,7 @@ export default function CameraCapture({
 		partNumber: string;
 		name: string;
 		confidence: number;
+		setId?: string;
 	} | null>(null);
 	const [availableColors, setAvailableColors] = useState<PartColor[]>([]);
 	const [showColorSelection, setShowColorSelection] = useState(false);
@@ -57,42 +63,69 @@ export default function CameraCapture({
 		onGuessSelectionChange(active);
 	};
 
-	const loadAndShowColors = async (partNumber: string) => {
+	const loadAndShowColors = async (partNumber: string, setId?: string) => {
 		setIsLoadingColors(true);
 		setStatus('Loading available colors...');
 		try {
 			const colors = await getPartColors(partNumber);
 
-			const existingColors = colors
-				.filter(color =>
+			let existingColors: PartColor[] = [];
+			let set = setId
+				? (db
+						.prepare('SELECT id FROM lego_sets WHERE id = ? OR id LIKE ?')
+						.all(setId, `${setId}-%`) as {id: string}[])
+				: [];
+			if (set?.length === 1) {
+				setRecognizedPart(prev => (prev ? {...prev, setId: set[0]!.id} : null));
+				existingColors = colors.filter(color =>
 					db
-						.prepare('SELECT 1 FROM parts WHERE part_num = ? AND color_id = ?')
-						.get(partNumber, color.color_id),
-				)
-				.map(color => {
-					const setPriorityRow = db
 						.prepare(
-							`SELECT s.priority FROM lego_set_parts sp
-                     		 JOIN lego_sets s ON sp.lego_set_id = s.id
-                    		 WHERE sp.part_num = ? AND sp.color_id = ?
-                     		 ORDER BY s.priority ASC LIMIT 1`,
+							`SELECT 1 FROM lego_set_parts sp
+					 		 JOIN lego_sets s ON sp.lego_set_id = s.id
+							 WHERE sp.part_num = ? AND sp.color_id = ? AND s.id = ?`,
 						)
-						.get(partNumber, color.color_id) as {priority: number} | undefined;
+						.get(partNumber, color.color_id, set[0]!.id),
+				);
+			} else {
+				existingColors = colors
+					.filter(color =>
+						db
+							.prepare(
+								'SELECT 1 FROM parts WHERE part_num = ? AND color_id = ?',
+							)
+							.get(partNumber, color.color_id),
+					)
+					.map(color => {
+						const setPriorityRow = db
+							.prepare(
+								`SELECT s.priority FROM lego_set_parts sp
+                     		 	 JOIN lego_sets s ON sp.lego_set_id = s.id
+                    		 	 WHERE sp.part_num = ? AND sp.color_id = ?
+                     		 	 ORDER BY s.priority ASC LIMIT 1`,
+							)
+							.get(partNumber, color.color_id) as
+							| {priority: number}
+							| undefined;
 
-					return {
-						...color,
-						priority: setPriorityRow
-							? setPriorityRow.priority
-							: Number.MAX_SAFE_INTEGER,
-					};
-				})
-				.sort((a, b) => a.priority - b.priority);
+						return {
+							...color,
+							priority: setPriorityRow
+								? setPriorityRow.priority
+								: Number.MAX_SAFE_INTEGER,
+						};
+					})
+					.sort((a, b) => a.priority - b.priority);
+			}
 
 			setAvailableColors(existingColors);
 
 			if (existingColors.length > 0) {
 				setColorSelectionState(true);
-				setStatus('Select the part color from the options below:');
+				if (setId)
+					setStatus(
+						`Confirm the part color for ${partNumber} from set ${setId}:`,
+					);
+				else setStatus('Select the part color from the options below:');
 			} else {
 				setStatus('No parts found in database - please enter manually');
 			}
@@ -122,9 +155,39 @@ export default function CameraCapture({
 
 			const results = await recognizePart(imageBuffer);
 
-			const existingParts = results.items.filter(item =>
+			let existingParts = results.items.filter(item =>
 				db.prepare('SELECT 1 FROM parts WHERE part_num = ?').get(item.id),
 			);
+			if (!existingParts.length) {
+				setStatus('Trying partial part numbers...');
+				// try with no pattern number
+				existingParts = results.items
+					.map(item => {
+						const {base, mold, assemblyConst, assemblyNum} = parsePartNumber(
+							item.id,
+							false,
+						);
+						const partNum = base + mold + assemblyConst + assemblyNum;
+						return db
+							.prepare('SELECT 1 FROM parts WHERE part_num = ?')
+							.get(partNum)
+							? {...item, id: partNum}
+							: null;
+					})
+					.filter(Boolean) as BrickognizeItem[];
+				// if still no matches, try with just the base part number
+				if (!existingParts.length)
+					existingParts = results.items
+						.map(item => {
+							const partNum = parsePartNumber(item.id).base;
+							return db
+								.prepare('SELECT 1 FROM parts WHERE part_num = ?')
+								.get(partNum)
+								? {...item, id: partNum}
+								: null;
+						})
+						.filter(Boolean) as BrickognizeItem[];
+			}
 
 			const sortedParts = [...existingParts].sort((a, b) => b.score - a.score);
 
@@ -154,17 +217,15 @@ export default function CameraCapture({
 							)}% confidence)`,
 						);
 
-						await loadAndShowColors(match.id);
+						let {set} = /Set (?<set>\d+(-\d)?)/.exec(match.name)?.groups || {};
+						await loadAndShowColors(match.id, set);
 						return;
 					}
 				} else {
 					// Top score is below certainty threshold, show top guesses
-					const topGuesses = results.items.slice(0, 5);
-					if (topGuesses.length) {
-						setGuesses(topGuesses);
-						setGuessSelectionState(true);
-						setStatus('Select the correct part from the guesses below:');
-					} else setStatus('No matches found. Please enter manually.');
+					setGuesses(sortedParts.slice(0, 5));
+					setGuessSelectionState(true);
+					setStatus('Select the correct part from the guesses below:');
 					return;
 				}
 			} else setStatus('No matches found. Please enter manually.');
@@ -181,13 +242,20 @@ export default function CameraCapture({
 
 	const handleColorSelect = (item: {value: number}) => {
 		const selectedColor = availableColors.find(c => c.color_id === item.value);
+		const setId = recognizedPart?.setId;
 		if (recognizedPart && selectedColor) {
-			onPartRecognized(recognizedPart.partNumber, selectedColor.color_id);
+			onPartRecognized(
+				recognizedPart.partNumber,
+				selectedColor.color_id,
+				setId,
+			);
 			setColorSelectionState(false);
 			setRecognizedPart(null);
 			setAvailableColors([]);
 			setStatus(
-				`Part and color selected! (${Math.round(
+				`Part and color ${
+					setId ? `from set ${setId} ` : ''
+				}selected! (${Math.round(
 					recognizedPart.confidence * 100,
 				)}% confidence)`,
 			);
@@ -208,7 +276,9 @@ export default function CameraCapture({
 				guess.score * 100,
 			)}% confidence)`,
 		);
-		await loadAndShowColors(guess.id);
+
+		let {set} = /Set (?<set>\d+(-\d)?)/.exec(guess.name)?.groups || {};
+		await loadAndShowColors(guess.id, set);
 	};
 
 	useInput(async (input, key) => {

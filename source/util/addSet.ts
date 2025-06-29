@@ -47,14 +47,13 @@ function insertPartsToDatabase(
  */
 export async function addSet(
 	db: DatabaseSync,
-	setNumber: string,
+	setNumber: `${number}-${number}` | `${number}`,
+	onSetSelection: (set: Set[]) => Promise<Set>,
 	priority?: number,
 ): Promise<{
 	set: Set;
 	parts: InventoryPart[];
 }> {
-	if (!/\d+(-\d)?/.test(setNumber)) throw new Error('Invalid set number');
-
 	if (priority === undefined) priority = fixPriorities(db);
 	else {
 		if (isNaN(priority)) throw new Error('Priority must be a number');
@@ -62,14 +61,19 @@ export async function addSet(
 		if (priority <= 0) throw new Error('Priority must be greater than 0');
 	}
 
+	let set = await getSetDetails(setNumber);
+	if (Array.isArray(set)) {
+		if (set.length === 1) set = set[0]!;
+		else set = await onSetSelection(set);
+		setNumber = set.set_num as `${number}-${number}`;
+	}
+
 	const existingSet = db
 		.prepare('SELECT id FROM lego_sets WHERE id = ?')
 		.get(setNumber);
-
 	if (existingSet)
 		throw new Error(`Set ${setNumber} already exists in the database`);
 
-	const set = await getSetDetails(setNumber);
 	const parts = await getSetParts(setNumber);
 	if (!parts.length) throw new Error(`No parts found for set ${setNumber}`);
 

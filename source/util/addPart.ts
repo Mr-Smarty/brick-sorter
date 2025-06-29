@@ -2,21 +2,47 @@ import {DatabaseSync} from 'node:sqlite';
 import updateSetCompletion from './updateSetCompletion.js';
 import type {Part} from '../types/typings.js';
 
+type PartNumberComponents = {
+	base: string;
+	mold: string;
+	patternConst: string;
+	patternNum: string;
+	assemblyConst: string;
+	assemblyNum: string;
+};
+
 /**
  * Validates and normalizes BrickLink part numbers.
  * @param partNumber - The part number to validate.
+ * @param allowUndefined - Whether to return undefined fields or empty strings.
+ * @throws Error if the part number is invalid.
  * @returns The normalized part number if valid, or throws an error if invalid.
  */
-export function validatePartNumber(partNumber: string): string {
-	// Regular expression for BrickLink part numbers
-	const partNumberRegex = /^\d+[a-z]?(p[bx]?\d+)?(c\d{2})?$/;
-
-	// Check if the part number matches the schema
+export function parsePartNumber(
+	partNumber: string,
+	allowUndefined?: true,
+): {base: string} & Partial<PartNumberComponents>;
+export function parsePartNumber(
+	partNumber: string,
+	allowUndefined: false,
+): PartNumberComponents;
+export function parsePartNumber(
+	partNumber: string,
+	allowUndefined: boolean = true,
+): (Partial<PartNumberComponents> & {base: string}) | PartNumberComponents {
+	const partNumberRegex =
+		/^(?<base>\d+)(?<mold>[a-z])?((?<patternConst>p[bx]?)(?<patternNum>\d+))?((?<assemblyConst>c)(?<assemblyNum>\d{2}))?$/;
 	if (!partNumberRegex.test(partNumber))
 		throw new Error(`Invalid part number: ${partNumber}`);
-
-	// Normalize the part number by stripping mold variant suffixes
-	return partNumber.match(/^\d+/)![0];
+	const partNumberComponents = partNumber.match(partNumberRegex)?.groups!;
+	if (allowUndefined)
+		return partNumberComponents as Partial<PartNumberComponents> & {
+			base: string;
+		};
+	else
+		return Object.fromEntries(
+			Object.entries(partNumberComponents).map(([k, v]) => [k, v ?? '']),
+		) as PartNumberComponents;
 }
 
 type AddPartParams =

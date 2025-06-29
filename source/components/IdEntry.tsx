@@ -7,7 +7,9 @@ import addPart from '../util/addPart.js';
 import fixPriorities from '../util/fixPriorities.js';
 import CameraCapture from './CameraCapture.js';
 import Spinner from 'ink-spinner';
-import {getColorInfo} from '../util/rebrickableApi.js';
+import {getColorInfo, isValidSetNumber} from '../util/rebrickableApi.js';
+import SetSelection from './SetSelection.js';
+import type {Set} from '@rebrickableapi/types/data/set';
 
 interface IdEntryProps {
 	onAllocationUpdate: (
@@ -42,6 +44,12 @@ export default function IdEntry({
 	const [isLoading, setIsLoading] = useState(false);
 	const [isColorSelectionActive, setIsColorSelectionActive] = useState(false);
 	const [isGuessSelectionActive, setIsGuessSelectionActive] = useState(false);
+	const [isSetSelectionActive, setIsSetSelectionActive] = useState(false);
+	const [setsToSelect, setSetsToSelect] = useState<Set[]>([]);
+	const [selectionPromise, setSelectionPromise] = useState<{
+		resolve: (set: Set) => void;
+		reject: (reason?: any) => void;
+	} | null>(null);
 
 	const {focusNext, focusPrevious, focus, disableFocus, enableFocus} =
 		useFocusManager();
@@ -57,10 +65,16 @@ export default function IdEntry({
 	}, [...Object.values(isFocused)]);
 
 	const partNumberInputRef = useRef<{focus: () => void}>(null);
+	const setNumberInputRef = useRef<{focus: () => void}>(null);
 
-	const handlePartRecognized = (partNumber: string, colorId: number) => {
+	const handlePartRecognized = (
+		partNumber: string,
+		colorId: number,
+		setId?: string,
+	) => {
 		setPartNumber(partNumber);
 		setColorId(`${colorId}`);
+		if (setId) setSetId(setId);
 		partNumberInputRef.current?.focus();
 		focus('partNumber');
 	};
@@ -74,7 +88,13 @@ export default function IdEntry({
 
 	useInput(async (_input, key) => {
 		if (!isActive) return;
-		if (isLoading || isColorSelectionActive || isGuessSelectionActive) return;
+		if (
+			isLoading ||
+			isColorSelectionActive ||
+			isGuessSelectionActive ||
+			isSetSelectionActive
+		)
+			return;
 
 		if (key.downArrow) {
 			focusNext();
@@ -87,7 +107,21 @@ export default function IdEntry({
 				setStatusField('setId');
 
 				try {
-					await addSet(db, setId, Number(priority));
+					if (!isValidSetNumber(setId)) throw new Error('Invalid set number');
+					await addSet(
+						db,
+						setId,
+						async sets => {
+							setSetsToSelect(sets);
+							setIsSetSelectionActive(true);
+							setIsLoading(false);
+
+							return new Promise((resolve, reject) =>
+								setSelectionPromise({resolve, reject}),
+							);
+						},
+						Number(priority),
+					);
 
 					setSetId('');
 					setPriority(Number(priority) + 1 + '');
@@ -169,6 +203,7 @@ export default function IdEntry({
 				<Box marginRight={2}>
 					<Text>Set Number: </Text>
 					<FocusableTextInput
+						ref={setNumberInputRef}
 						value={setId}
 						onChange={val => setSetId(val.replace(/\s/g, ''))}
 						placeholder="Enter set #"
@@ -204,7 +239,15 @@ export default function IdEntry({
 							</Text>
 						) : (
 							status && (
-								<Text color={status.includes('successfully') ? 'green' : 'red'}>
+								<Text
+									color={
+										status.includes('successfully')
+											? 'green'
+											: status.includes('...')
+											? undefined
+											: 'red'
+									}
+								>
 									{status}
 								</Text>
 							)
@@ -319,20 +362,43 @@ export default function IdEntry({
 					</Box>
 				)}
 
+			<SetSelection
+				sets={setsToSelect}
+				onSetSelect={selectedSet => {
+					setSetId(selectedSet.set_num);
+					setIsSetSelectionActive(false);
+					setIsLoading(true);
+					selectionPromise?.resolve(selectedSet);
+					setSelectionPromise(null);
+				}}
+				onCancel={() => {
+					setIsSetSelectionActive(false);
+					setStatus('Set selection cancelled.');
+					selectionPromise?.reject(new Error('Set selection cancelled'));
+					setSelectionPromise(null);
+				}}
+				isActive={isSetSelectionActive}
+			/>
+
 			<CameraCapture
 				onPartRecognized={handlePartRecognized}
 				onColorSelectionChange={setIsColorSelectionActive}
 				onGuessSelectionChange={setIsGuessSelectionActive}
 				isEnabled={
-					!isLoading && !isColorSelectionActive && !isGuessSelectionActive
+					!isLoading &&
+					!isColorSelectionActive &&
+					!isGuessSelectionActive &&
+					!isSetSelectionActive
 				}
 				isActive={isActive}
 			/>
 
 			<Box marginTop={1}>
 				<Text color="gray">
-					{isColorSelectionActive
-						? 'Color selection active - other inputs disabled'
+					{isColorSelectionActive ||
+					isGuessSelectionActive ||
+					isSetSelectionActive
+						? 'List selection active: Use arrow keys to navigate • Enter to confirm'
 						: 'Use arrow keys to navigate • Spacebar to capture part • Enter to submit'}
 				</Text>
 			</Box>
