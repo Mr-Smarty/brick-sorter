@@ -155,38 +155,41 @@ export default function CameraCapture({
 
 			const results = await recognizePart(imageBuffer);
 
-			let existingParts = results.items.filter(item =>
-				db.prepare('SELECT 1 FROM parts WHERE part_num = ?').get(item.id),
-			);
-			if (!existingParts.length) {
-				setStatus('Trying partial part numbers...');
-				// try with no pattern number
+			const searchIds: ((item: BrickognizeItem) => string)[] = [
+				item => item.id,
+				item => {
+					const {base, mold, assemblyConst, assemblyNum} = parsePartNumber(
+						item.id,
+						false,
+					);
+					return base + mold + assemblyConst + assemblyNum;
+				},
+				item => parsePartNumber(item.id).base,
+			];
+			let existingParts: BrickognizeItem[] = [];
+			for (const searchId of searchIds) {
 				existingParts = results.items
 					.map(item => {
-						const {base, mold, assemblyConst, assemblyNum} = parsePartNumber(
-							item.id,
-							false,
-						);
-						const partNum = base + mold + assemblyConst + assemblyNum;
-						return db
-							.prepare('SELECT 1 FROM parts WHERE part_num = ?')
-							.get(partNum)
-							? {...item, id: partNum}
-							: null;
+						const id = searchId(item);
+						const found = (db
+							.prepare('SELECT part_num FROM parts WHERE part_num = ?')
+							.get(id) ||
+							db
+								.prepare(
+									`SELECT part_num FROM parts WHERE bricklink_id = ? 
+									 OR bricklink_id LIKE ? 
+									 OR bricklink_id LIKE ? 
+									 OR bricklink_id LIKE ?;`,
+								)
+								.get(id, `${id}|%`, `%|${id}|%`, `%|${id}`)) as
+							| {part_num: string}
+							| undefined;
+
+						return found ? {...item, id: found.part_num} : null;
 					})
 					.filter(Boolean) as BrickognizeItem[];
-				// if still no matches, try with just the base part number
-				if (!existingParts.length)
-					existingParts = results.items
-						.map(item => {
-							const partNum = parsePartNumber(item.id).base;
-							return db
-								.prepare('SELECT 1 FROM parts WHERE part_num = ?')
-								.get(partNum)
-								? {...item, id: partNum}
-								: null;
-						})
-						.filter(Boolean) as BrickognizeItem[];
+				if (existingParts.length) break;
+				setStatus('Trying partial part numbers...');
 			}
 
 			const sortedParts = [...existingParts].sort((a, b) => b.score - a.score);

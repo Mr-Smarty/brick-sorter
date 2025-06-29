@@ -59,7 +59,7 @@ export const FocusableTextInput = forwardRef<
 		<Box flexDirection="column" flexGrow={1} width={width}>
 			<TextInput
 				key={inputKey}
-				value={value}
+				value={String(value)}
 				onChange={handleChange}
 				placeholder={placeholder}
 				mask={mask}
