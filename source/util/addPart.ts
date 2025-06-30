@@ -80,9 +80,7 @@ export async function addPart(
 		colorId = params.colorId!;
 	}
 
-	//const normalizedPartNumber = validatePartNumber(partNumber)!; TODO: implement special part allocation logic
 	if (isNaN(colorId)) throw new Error('Invalid color ID');
-
 	if (isNaN(quantity)) throw new Error('Quantity must be a number');
 	if (quantity % 1 !== 0) throw new Error('Quantity must be an integer');
 	if (quantity <= 0) throw new Error('Quantity must be greater than 0');

@@ -25,7 +25,7 @@ function insertPartsToDatabase(
 			part.color.id,
 			part.part.name,
 			0,
-			part.part.external_ids.BrickLink.join('|'), // TODO: implement BrickLink multiple IDs
+			part.part.external_ids.BrickLink.join('|'),
 			part.element_id || null,
 		);
 
