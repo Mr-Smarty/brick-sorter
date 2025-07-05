@@ -1,6 +1,7 @@
 import {config} from 'dotenv';
 import {fetchRebrickableAPI, RebrickableAPIError} from '@rebrickableapi/fetch';
 import type {InventoryPart} from '@rebrickableapi/types/data/inventory-part';
+import type {Element} from '@rebrickableapi/types/data/element';
 import type {Set} from '@rebrickableapi/types/data/set';
 import type {PartColor} from '../types/typings.js';
 
@@ -108,6 +109,25 @@ export async function getPartColors(partNum: string): Promise<PartColor[]> {
 		return response.results as PartColor[];
 	} catch (error) {
 		throw handleError(error);
+	}
+}
+
+export async function getElementDetails(elementId: string): Promise<Element> {
+	if (!REBRICKABLE_API_KEY) {
+		throw new Error('REBRICKABLE_API_KEY environment variable is not set');
+	}
+
+	const endpoint = `/api/v3/lego/elements/${elementId}/` as const;
+
+	try {
+		const response = await fetchRebrickableAPI(endpoint, {
+			key: REBRICKABLE_API_KEY,
+		});
+		return response;
+	} catch (error) {
+		throw handleError(error, [
+			{status: 404, text: `Element ${elementId} not found`},
+		]);
 	}
 }
 

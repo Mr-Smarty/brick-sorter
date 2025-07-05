@@ -1,5 +1,6 @@
 import React, {useState, useRef, useEffect} from 'react';
 import {Text, Box, useFocus, useFocusManager, useInput} from 'ink';
+import open from 'open';
 import {FocusableTextInput} from './util/FocusableTextInput.js';
 import {useDatabase} from '../context/DatabaseContext.js';
 import addSet from '../util/addSet.js';
@@ -7,7 +8,11 @@ import addPart from '../util/addPart.js';
 import fixPriorities from '../util/fixPriorities.js';
 import CameraCapture from './CameraCapture.js';
 import Spinner from 'ink-spinner';
-import {getColorInfo, isValidSetNumber} from '../util/rebrickableApi.js';
+import {
+	getColorInfo,
+	getElementDetails,
+	isValidSetNumber,
+} from '../util/rebrickableApi.js';
 import SetSelection from './SetSelection.js';
 import type {Set} from '@rebrickableapi/types/data/set';
 
@@ -67,6 +72,9 @@ export default function IdEntry({
 	const partNumberInputRef = useRef<{focus: () => void}>(null);
 	const setNumberInputRef = useRef<{focus: () => void}>(null);
 
+	const isInputDisabled =
+		isColorSelectionActive || isGuessSelectionActive || isSetSelectionActive;
+
 	const handlePartRecognized = (
 		partNumber: string,
 		colorId: number,
@@ -86,7 +94,7 @@ export default function IdEntry({
 		} else disableFocus();
 	}, [isActive]);
 
-	useInput(async (_input, key) => {
+	useInput(async (input, key) => {
 		if (!isActive) return;
 		if (
 			isLoading ||
@@ -194,6 +202,24 @@ export default function IdEntry({
 					setIsLoading(false);
 				}
 			}
+		} else if (key.ctrl && input === 'o') {
+			if (isFocused.setId || isFocused.priority) {
+				if (isValidSetNumber(setId))
+					await open(`https://rebrickable.com/sets/?q=${setId}`);
+			} else {
+				if (partNumber) {
+					await open(
+						`https://rebrickable.com/parts/?q=${partNumber}&exists_in_color=${colorId}`,
+					);
+				} else if (elementId) {
+					try {
+						await getElementDetails(elementId);
+						await open(`https://rebrickable.com/search/?q=${elementId}`);
+					} catch (error) {}
+				}
+			}
+			setStatus('successfully opened preview in browser');
+			setStatusField(trueFocus(isFocused) || '');
 		}
 	});
 
@@ -209,7 +235,7 @@ export default function IdEntry({
 						placeholder="Enter set #"
 						focusKey="setId"
 						width={12}
-						isActive={isActive}
+						isActive={isActive && !isInputDisabled}
 					/>
 				</Box>
 
@@ -222,7 +248,7 @@ export default function IdEntry({
 						focusKey="priority"
 						width={5}
 						type="number"
-						isActive={isActive}
+						isActive={isActive && !isInputDisabled}
 					/>
 				</Box>
 			</Box>
@@ -269,7 +295,7 @@ export default function IdEntry({
 							placeholder="Enter part #"
 							focusKey="partNumber"
 							width={12}
-							isActive={isActive}
+							isActive={isActive && !isInputDisabled}
 						/>
 					</Box>
 
@@ -283,7 +309,7 @@ export default function IdEntry({
 							width={colorId?.length ? colorId.length + 2 : 14}
 							type="number"
 							maxInputLength={4}
-							isActive={isActive}
+							isActive={isActive && !isInputDisabled}
 						/>
 						{colorId && (
 							<Text
@@ -303,7 +329,7 @@ export default function IdEntry({
 							focusKey="quantity"
 							width={5}
 							type="number"
-							isActive={isActive}
+							isActive={isActive && !isInputDisabled}
 						/>
 					</Box>
 				</Box>
@@ -316,7 +342,7 @@ export default function IdEntry({
 						focusKey="elementId"
 						width={12}
 						type="number"
-						isActive={isActive}
+						isActive={isActive && !isInputDisabled}
 					/>
 				</Box>
 			</Box>
@@ -399,7 +425,7 @@ export default function IdEntry({
 					isGuessSelectionActive ||
 					isSetSelectionActive
 						? 'List selection active: Use arrow keys to navigate • Enter to confirm'
-						: 'Use arrow keys to navigate • Spacebar to capture part • Enter to submit'}
+						: 'Use arrow keys to navigate • ctrl+o to preview selection • Spacebar to capture part • Enter to submit'}
 				</Text>
 			</Box>
 		</Box>

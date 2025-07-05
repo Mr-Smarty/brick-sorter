@@ -1,6 +1,7 @@
 import React, {useState} from 'react';
 import {Text, Box, useInput} from 'ink';
 import Spinner from 'ink-spinner';
+import open from 'open';
 import {captureImage} from '../util/camera.js';
 import {recognizePart} from '../util/brickognizeApi.js';
 import {getPartColors} from '../util/rebrickableApi.js';
@@ -41,7 +42,10 @@ export default function CameraCapture({
 	const db = useDatabase();
 	const [isCapturing, setIsCapturing] = useState(false);
 	const [isLoadingColors, setIsLoadingColors] = useState(false);
-	const [status, setStatus] = useState('');
+	const [status, setStatus] = useState<{text: string; color: string}>({
+		text: '',
+		color: 'green',
+	});
 	const [recognizedPart, setRecognizedPart] = useState<{
 		partNumber: string;
 		name: string;
@@ -52,6 +56,9 @@ export default function CameraCapture({
 	const [showColorSelection, setShowColorSelection] = useState(false);
 	const [guesses, setGuesses] = useState<BrickognizeItem[]>([]);
 	const [showGuessSelection, setShowGuessSelection] = useState(false);
+	const [highlightedGuessURL, setHighlightedGuessURL] = useState<string>('');
+	const [highlightedElement, setHighlightedElement] = useState<string>('');
+	const [highlightedColor, setHighlightedColor] = useState<number | null>(null);
 
 	const setColorSelectionState = (active: boolean) => {
 		setShowColorSelection(active);
@@ -65,7 +72,7 @@ export default function CameraCapture({
 
 	const loadAndShowColors = async (partNumber: string, setId?: string) => {
 		setIsLoadingColors(true);
-		setStatus('Loading available colors...');
+		setStatus({text: 'Loading available colors...', color: 'white'});
 		try {
 			const colors = await getPartColors(partNumber);
 
@@ -117,24 +124,38 @@ export default function CameraCapture({
 					.sort((a, b) => a.priority - b.priority);
 			}
 
-			setAvailableColors(existingColors);
-
 			if (existingColors.length > 0) {
+				setAvailableColors(existingColors);
 				setColorSelectionState(true);
+				setHighlightedElement(
+					existingColors[0]!.elements[0] ||
+						existingColors[0]!.part_img_url ||
+						'',
+				);
+				setHighlightedColor(existingColors[0]!.color_id);
 				if (setId)
-					setStatus(
-						`Confirm the part color for ${partNumber} from set ${setId}:`,
-					);
-				else setStatus('Select the part color from the options below:');
+					setStatus({
+						text: `Confirm the part color for ${partNumber} from set ${setId}:`,
+						color: 'yellow',
+					});
+				else
+					setStatus({
+						text: 'Select the part color from the options below:',
+						color: 'yellow',
+					});
 			} else {
-				setStatus('No parts found in database - please enter manually');
+				setStatus({
+					text: 'No parts found in database - please enter manually',
+					color: 'red',
+				});
 			}
 		} catch (colorError) {
-			setStatus(
-				`Failed to load colors: ${
+			setStatus({
+				text: `Failed to load colors: ${
 					colorError instanceof Error ? colorError.message : 'Unknown error'
 				}`,
-			);
+				color: 'red',
+			});
 		} finally {
 			setIsLoadingColors(false);
 		}
@@ -144,14 +165,17 @@ export default function CameraCapture({
 		if (!isEnabled || !isActive || isCapturing) return;
 
 		setIsCapturing(true);
-		setStatus('Capturing image...');
+		setStatus({text: 'Capturing image...', color: 'white'});
 		setColorSelectionState(false);
 		setGuessSelectionState(false);
 		setRecognizedPart(null);
+		setHighlightedColor(null);
+		setHighlightedElement('');
+		setHighlightedGuessURL('');
 
 		try {
 			const imageBuffer = await captureImage();
-			setStatus('Image captured, recognizing part...');
+			setStatus({text: 'Image captured, recognizing part...', color: 'white'});
 
 			const results = await recognizePart(imageBuffer);
 
@@ -189,7 +213,7 @@ export default function CameraCapture({
 					})
 					.filter(Boolean) as BrickognizeItem[];
 				if (existingParts.length) break;
-				setStatus('Trying partial part numbers...');
+				setStatus({text: 'Trying partial part numbers...', color: 'white'});
 			}
 
 			const sortedParts = [...existingParts].sort((a, b) => b.score - a.score);
@@ -204,8 +228,18 @@ export default function CameraCapture({
 
 					if (similarParts.length > 1) {
 						setGuesses(similarParts);
+						setHighlightedGuessURL(
+							similarParts[0]!.external_sites.find(
+								site => site.name === 'BrickLink',
+							)?.url ||
+								similarParts[0]!.external_sites[0]?.url ||
+								'',
+						);
 						setGuessSelectionState(true);
-						setStatus('Multiple similar parts found. Select the correct part:');
+						setStatus({
+							text: 'Multiple similar parts found. Select the correct part:',
+							color: 'yellow',
+						});
 						return;
 					} else {
 						const match = sortedParts[0]!;
@@ -214,11 +248,12 @@ export default function CameraCapture({
 							name: match.name,
 							confidence: match.score,
 						});
-						setStatus(
-							`Part recognized: ${match.name} (${Math.round(
+						setStatus({
+							text: `Part recognized: ${match.name} (${Math.round(
 								match.score * 100,
 							)}% confidence)`,
-						);
+							color: 'green',
+						});
 
 						let {set} = /Set (?<set>\d+(-\d)?)/.exec(match.name)?.groups || {};
 						await loadAndShowColors(match.id, set);
@@ -227,16 +262,30 @@ export default function CameraCapture({
 				} else {
 					// Top score is below certainty threshold, show top guesses
 					setGuesses(sortedParts.slice(0, 5));
+					setHighlightedGuessURL(
+						sortedParts[0]!.external_sites.find(
+							site => site.name === 'BrickLink',
+						)?.url ||
+							sortedParts[0]!.external_sites[0]?.url ||
+							'',
+					);
 					setGuessSelectionState(true);
-					setStatus('Select the correct part from the guesses below:');
+					setStatus({
+						text: 'Select the correct part from the guesses below:',
+						color: 'yellow',
+					});
 					return;
 				}
-			} else setStatus('No matches found. Please enter manually.');
+			} else
+				setStatus({
+					text: 'No matches found. Please enter manually.',
+					color: 'red',
+				});
 		} catch (error) {
 			if (error instanceof Error) {
-				setStatus(`Camera error: ${error.message}`);
+				setStatus({text: `Camera error: ${error.message}`, color: 'red'});
 			} else {
-				setStatus('Camera capture failed');
+				setStatus({text: 'Camera capture failed', color: 'red'});
 			}
 		} finally {
 			setIsCapturing(false);
@@ -253,15 +302,30 @@ export default function CameraCapture({
 				setId,
 			);
 			setColorSelectionState(false);
+			setHighlightedColor(null);
+			setHighlightedElement('');
 			setRecognizedPart(null);
 			setAvailableColors([]);
-			setStatus(
-				`Part and color ${
+			setStatus({
+				text: `Part and color ${
 					setId ? `from set ${setId} ` : ''
 				}selected! (${Math.round(
 					recognizedPart.confidence * 100,
 				)}% confidence)`,
+				color: 'green',
+			});
+		}
+	};
+
+	const handleColorHighlight = (item: {value: number}) => {
+		const highlightedColor = availableColors.find(
+			c => c.color_id === item.value,
+		);
+		if (highlightedColor) {
+			setHighlightedElement(
+				highlightedColor.elements[0] || highlightedColor.part_img_url || '',
 			);
+			setHighlightedColor(highlightedColor.color_id);
 		}
 	};
 
@@ -274,14 +338,26 @@ export default function CameraCapture({
 			confidence: guess.score,
 		});
 		setGuessSelectionState(false);
-		setStatus(
-			`Selected guess: ${guess.name} (${Math.round(
+		setHighlightedGuessURL('');
+		setStatus({
+			text: `Selected guess: ${guess.name} (${Math.round(
 				guess.score * 100,
 			)}% confidence)`,
-		);
+			color: 'green',
+		});
 
 		let {set} = /Set (?<set>\d+(-\d)?)/.exec(guess.name)?.groups || {};
 		await loadAndShowColors(guess.id, set);
+	};
+
+	const handleGuessHighlight = (item: {value: string}) => {
+		const guess = guesses.find(g => g.id === item.value);
+		if (guess)
+			setHighlightedGuessURL(
+				guess.external_sites.find(site => site.name === 'BrickLink')?.url ||
+					guess.external_sites[0]?.url ||
+					'',
+			);
 	};
 
 	useInput(async (input, key) => {
@@ -291,10 +367,29 @@ export default function CameraCapture({
 			await handleImageCapture();
 		} else if (showColorSelection && key.escape) {
 			setColorSelectionState(false);
-			setStatus('Color selection cancelled');
+			setHighlightedColor(null);
+			setHighlightedElement('');
+			setStatus({text: 'Color selection cancelled', color: 'yellow'});
 		} else if (showGuessSelection && key.escape) {
 			setGuessSelectionState(false);
-			setStatus('Guess selection cancelled');
+			setHighlightedGuessURL('');
+			setStatus({text: 'Guess selection cancelled', color: 'yellow'});
+		} else if (
+			key.ctrl &&
+			input === 'o' &&
+			(showColorSelection || showGuessSelection)
+		) {
+			if (highlightedGuessURL) await open(highlightedGuessURL);
+			else if (highlightedElement)
+				if (highlightedElement.startsWith('http'))
+					await open(highlightedElement);
+				else
+					await open(`https://rebrickable.com/search/?q=${highlightedElement}`);
+			else if (highlightedColor !== null)
+				await open(
+					`https://rebrickable.com/parts/?q=${recognizedPart?.partNumber}&exists_in_color=${highlightedColor}`,
+				);
+			setStatus({text: 'Opened preview in browser', color: 'green'});
 		}
 		return;
 	});
@@ -308,20 +403,10 @@ export default function CameraCapture({
 							<Text color="green">
 								<Spinner type="dots" />
 							</Text>
-							{isCapturing ? ' Capturing...' : ' Loading colors...'}
+							{status.text}
 						</Text>
 					) : (
-						<Text
-							color={
-								status.includes('recognized') ||
-								status.includes('selected') ||
-								status.includes('Select the right part')
-									? 'green'
-									: 'yellow'
-							}
-						>
-							{status}
-						</Text>
+						<Text color={status.color}>{status.text}</Text>
 					)}
 				</Box>
 			)}
@@ -342,6 +427,7 @@ export default function CameraCapture({
 							)}%]`,
 							value: guess.id,
 						}))}
+						onHighlight={handleGuessHighlight}
 						onSelect={handleGuessSelect}
 						isFocused={isActive}
 					/>
@@ -362,6 +448,7 @@ export default function CameraCapture({
 							label: `${color.color_name} (ID: ${color.color_id})`,
 							value: color.color_id,
 						}))}
+						onHighlight={handleColorHighlight}
 						onSelect={handleColorSelect}
 						isFocused={isActive}
 					/>

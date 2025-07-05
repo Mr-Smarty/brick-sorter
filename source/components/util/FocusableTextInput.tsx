@@ -1,6 +1,6 @@
 import {Box, useFocus} from 'ink';
-import TextInput from 'ink-text-input';
-import React, {forwardRef, useImperativeHandle, useState} from 'react';
+import TextInput from './TextInput.js';
+import React, {forwardRef, useImperativeHandle} from 'react';
 
 interface FocusableTextInputProps {
 	value: string;
@@ -36,33 +36,16 @@ export const FocusableTextInput = forwardRef<
 		focus,
 		focusKey,
 	]);
-	const [inputKey, setInputKey] = useState(0);
-
-	const handleChange = (newValue: string) => {
-		if (type === 'number') {
-			newValue = newValue.replace(/[^0-9]/g, '');
-		} else if (type === 'float') {
-			newValue = newValue.replace(/[^0-9.]/g, '');
-			const parts = newValue.split('.');
-			if (parts.length > 2) newValue = parts[0] + '.' + parts.slice(1).join('');
-		} else if (type === 'character') {
-			newValue = newValue.replace(/[^a-z]/gi, '');
-		}
-		if (maxInputLength !== undefined && newValue.length > maxInputLength)
-			newValue = newValue.slice(0, maxInputLength);
-
-		if (newValue !== value) onChange(newValue);
-		else setInputKey(prev => prev + 1);
-	};
 
 	return (
 		<Box flexDirection="column" flexGrow={1} width={width}>
 			<TextInput
-				key={inputKey}
 				value={String(value)}
-				onChange={handleChange}
+				onChange={onChange}
 				placeholder={placeholder}
 				mask={mask}
+				type={type}
+				maxInputLength={maxInputLength}
 				focus={isActive && isFocused}
 				showCursor={isActive && isFocused}
 			/>
