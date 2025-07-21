@@ -1,28 +1,31 @@
 import React from 'react';
 import {Text, Box, useInput} from 'ink';
 import SelectInput from 'ink-select-input';
-import type {Set} from '@rebrickableapi/types/data/set';
+import type {Set as ApiSet} from '@rebrickableapi/types/data/set';
+import type {Set} from '../types/typings.js';
 
-interface SetSelectionProps {
-	sets: Set[];
-	onSetSelect: (set: Set) => void;
+interface SetSelectionProps<T extends Set | ApiSet> {
+	sets: T[];
+	onSetSelect: (set: T) => void;
 	onCancel: () => void;
 	isActive: boolean;
 }
 
-export default function SetSelection({
+export default function SetSelection<T extends Set | ApiSet>({
 	sets,
 	onSetSelect,
 	onCancel,
 	isActive,
-}: SetSelectionProps): JSX.Element {
+}: SetSelectionProps<T>): JSX.Element {
 	const items = sets.map(set => ({
-		label: `${set.name} (ID: ${set.set_num})`,
-		value: set.set_num,
+		label: `${set.name} (ID: ${'set_num' in set ? set.set_num : set.id})`,
+		value: 'set_num' in set ? set.set_num : set.id,
 	}));
 
 	const handleSelect = (item: {value: string}) => {
-		const selectedSet = sets.find(set => set.set_num === item.value);
+		const selectedSet = sets.find(
+			set => ('set_num' in set ? set.set_num : set.id) === item.value,
+		);
 		if (selectedSet) onSetSelect(selectedSet);
 	};
 

@@ -8,6 +8,7 @@ import SetList from './components/SetList.js';
 import {DatabaseProvider} from './context/DatabaseContext.js';
 import {Box, Text} from 'ink';
 import {Tab, Tabs} from 'ink-tab';
+import SetPartList from './components/SetPartList.js';
 
 const MIN_WIDTH = 100; // Minimum terminal width
 const MIN_HEIGHT = 24; // Minimum terminal height
@@ -101,6 +102,14 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 				</Box>
 
 				<Box
+					flexDirection="column"
+					flexGrow={1}
+					display={activeTab === 'setParts' ? 'flex' : 'none'}
+				>
+					<SetPartList isActive={activeTab === 'setParts'} />
+				</Box>
+
+				<Box
 					borderStyle="round"
 					borderColor="cyan"
 					marginTop={1}
@@ -120,6 +129,7 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 					>
 						<Tab name="dashboard">Dashboard</Tab>
 						<Tab name="sets">Sets</Tab>
+						<Tab name="setParts">Set Parts</Tab>
 					</Tabs>
 				</Box>
 				<Box justifyContent="center">

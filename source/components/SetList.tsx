@@ -189,6 +189,7 @@ export default function SetList({isActive}: SetListProps): React.JSX.Element {
 					<Text color="gray"> (Enter to change Sort order)</Text>
 				</Box>
 				<Box>
+					<Text color="gray">↑/↓ to scroll. </Text>
 					<Text>Page: </Text>
 					<Text color="gray">PgUp </Text>
 					<PaginationDisplay current={currentPage} total={totalPages} />

@@ -145,6 +145,8 @@ export default function IdEntry({
 					}
 				} finally {
 					setIsLoading(false);
+					const current = trueFocus(isFocused);
+					if (current) focus(current);
 				}
 			} else if (
 				isFocused.partNumber ||
@@ -200,6 +202,8 @@ export default function IdEntry({
 					}
 				} finally {
 					setIsLoading(false);
+					const current = trueFocus(isFocused);
+					if (current) focus(current);
 				}
 			}
 		} else if (key.ctrl && input === 'o') {
@@ -220,6 +224,24 @@ export default function IdEntry({
 			}
 			setStatus('successfully opened preview in browser');
 			setStatusField(trueFocus(isFocused) || '');
+		} else if (key.escape) {
+			if (isFocused.setId || isFocused.priority) {
+				setSetId('');
+				setPriority(fixPriorities(db) + '');
+			} else if (
+				isFocused.partNumber ||
+				isFocused.colorId ||
+				isFocused.elementId ||
+				isFocused.quantity
+			) {
+				setPartNumber('');
+				setColorId('');
+				setElementId('');
+				setQuantity('1');
+			}
+			setStatus('');
+			const current = trueFocus(isFocused);
+			if (current) focus(current);
 		}
 	});
 
