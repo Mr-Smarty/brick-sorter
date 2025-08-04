@@ -1,24 +1,48 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {useDatabase} from '../context/DatabaseContext.js';
-import {Box, Text, useInput} from 'ink';
+import {Box, Text, useFocus, useFocusManager, useInput} from 'ink';
 import TextInput from './util/TextInput.js';
+import {UncontrolledFocusableTextInput} from './util/FocusableTextInput.js';
 import SetSelection from './SetSelection.js';
+import Gradient from 'ink-gradient';
+import ProgressBar from './util/ProgressBar.js';
+import {formatPercentage} from '../util/formatPercentage.js';
 import type {Set} from '../types/typings.js';
 
-type SetPartListState = 'search' | 'searchSelect' | 'partList' | 'loading';
-type SetPartListProps = {
+type SetEditState = 'search' | 'searchSelect' | 'edit' | 'loading';
+type SetEditProps = {
 	isActive: boolean;
 };
 
-export default function SetPartList({
-	isActive,
-}: SetPartListProps): React.JSX.Element {
+export default function SetEdit({isActive}: SetEditProps): React.JSX.Element {
 	const db = useDatabase();
-	const [uiState, setUiState] = useState<SetPartListState>('search');
+	const [uiState, setUiState] = useState<SetEditState>('search');
 	const [searchQuery, setSearchQuery] = useState('');
 	const [searchResults, setSearchResults] = useState<Set[]>([]);
 	const [selectedSet, setSelectedSet] = useState<Set | null>(null);
 	const [status, setStatus] = useState('');
+
+	const focusableFields = ['priority', 'completion', 'partList'] as const;
+	type focusableFields = (typeof focusableFields)[number];
+	const {focusNext, focusPrevious, focus, disableFocus, enableFocus} =
+		useFocusManager();
+	const [lastFocused, setLastFocused] = useState<string | null>('partList');
+	const isFocused = {} as Record<focusableFields, boolean>;
+	for (const key of focusableFields)
+		isFocused[key] = useFocus({id: key, isActive}).isFocused;
+	const trueFocus = <T extends string>(
+		isFocused: Record<T, boolean>,
+	): T | null => Object.entries(isFocused).find(([_, v]) => v)?.[0] as T | null;
+	useEffect(() => {
+		if (isActive) setLastFocused(() => trueFocus(isFocused));
+	}, [...Object.values(isFocused)]);
+
+	useEffect(() => {
+		if (isActive && uiState === 'edit') {
+			enableFocus();
+			if (lastFocused) focus(lastFocused);
+		} else disableFocus();
+	}, [isActive, uiState]);
 
 	useInput((_input, key) => {
 		if (!isActive || uiState === 'loading') return;
@@ -39,13 +63,17 @@ export default function SetPartList({
 					setStatus('');
 				}
 				break;
-			case 'partList':
+			case 'edit':
 				if (key.escape) {
 					setUiState('search');
 					setSearchQuery('');
 					setSearchResults([]);
 					setSelectedSet(null);
 					setStatus('');
+				} else if (key.downArrow) {
+					focusNext();
+				} else if (key.upArrow) {
+					focusPrevious();
 				}
 				break;
 		}
@@ -86,7 +114,7 @@ export default function SetPartList({
 	const handleSetSelect = (set: Set) => {
 		setSelectedSet(set);
 		setSearchResults([]);
-		setUiState('partList');
+		setUiState('edit');
 		setStatus('');
 	};
 
@@ -129,12 +157,58 @@ export default function SetPartList({
 			{/* Selected Set */}
 			{selectedSet && (
 				<Box flexDirection="column">
-					<Text>
-						Selected Set: <Text color="green">{selectedSet.name}</Text> (ID:{' '}
-						{selectedSet.id})
-					</Text>
-					<Text>Priority: {selectedSet.priority}</Text>
-					<Text>Completion: {Math.round(selectedSet.completion * 100)}%</Text>
+					<Box
+						flexDirection="row"
+						flexShrink={0}
+						width="100%"
+						justifyContent="space-between"
+					>
+						<Box flexDirection="row">
+							<Text wrap="truncate" bold>
+								{selectedSet.name}
+							</Text>
+							<Box flexShrink={0} flexDirection="row">
+								<Text>
+									{' '}
+									<Text color="gray">(ID: {selectedSet.id})</Text> Priority:
+								</Text>
+								<UncontrolledFocusableTextInput
+									placeholder={`${selectedSet.priority}`}
+									initialValue={selectedSet.priority}
+									type="number"
+									onSubmit={value => {
+										setSelectedSet(prev =>
+											prev && value ? {...prev, priority: value} : null,
+										);
+									}}
+									focusKey="priority"
+									isActive={isActive && uiState === 'edit'}
+								/>
+							</Box>
+						</Box>
+						<Box flexDirection="row" flexShrink={0}>
+							<Text>|</Text>
+							<Gradient name="retro">
+								<ProgressBar
+									percent={selectedSet.completion}
+									width="25%"
+									minWidth={30}
+									character="■"
+									rightPad={true}
+									rightPadCharacter=" "
+								/>
+							</Gradient>
+							<Text>|</Text>
+							<Box width={6} justifyContent="flex-end">
+								<Text
+									color={selectedSet.completion === 1 ? 'green' : undefined}
+								>
+									{formatPercentage(selectedSet.completion)}
+								</Text>
+							</Box>
+							<Text> </Text>
+						</Box>
+					</Box>
 				</Box>
 			)}
 

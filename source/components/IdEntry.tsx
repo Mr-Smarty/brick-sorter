@@ -30,11 +30,11 @@ export default function IdEntry({
 }: IdEntryProps): JSX.Element {
 	const db = useDatabase();
 	const [setId, setSetId] = useState('');
-	const [priority, setPriority] = useState(fixPriorities(db) + '');
+	const [priority, setPriority] = useState<number | null>(fixPriorities(db));
 	const [partNumber, setPartNumber] = useState('');
-	const [colorId, setColorId] = useState('');
+	const [colorId, setColorId] = useState<number | null>(null);
 	const [elementId, setElementId] = useState('');
-	const [quantity, setQuantity] = useState('1');
+	const [quantity, setQuantity] = useState<number | null>(1);
 	const [status, setStatus] = useState('');
 	const focusableFields = [
 		'setId',
@@ -81,7 +81,7 @@ export default function IdEntry({
 		setId?: string,
 	) => {
 		setPartNumber(partNumber);
-		setColorId(`${colorId}`);
+		setColorId(colorId);
 		if (setId) setSetId(setId);
 		partNumberInputRef.current?.focus();
 		focus('partNumber');
@@ -128,11 +128,11 @@ export default function IdEntry({
 								setSelectionPromise({resolve, reject}),
 							);
 						},
-						Number(priority),
+						priority || undefined,
 					);
 
 					setSetId('');
-					setPriority(Number(priority) + 1 + '');
+					setPriority((priority || fixPriorities(db)) + 1);
 					setStatus('Set added successfully');
 					fixPriorities(db);
 				} catch (error) {
@@ -160,12 +160,12 @@ export default function IdEntry({
 
 				try {
 					let addPartParams;
-					let partEntered = partNumber && colorId;
-					let elementEntered = Boolean(elementId);
+					const partEntered = partNumber && colorId !== null;
+					const elementEntered = Boolean(elementId);
 					if (elementEntered && isFocused.elementId)
 						addPartParams = {elementId};
-					else if (partEntered)
-						addPartParams = {partNumber, colorId: Number(colorId)};
+					else if (partEntered && colorId !== null)
+						addPartParams = {partNumber, colorId: colorId};
 					else if (elementEntered) addPartParams = {elementId};
 					else
 						throw new Error(
@@ -175,17 +175,19 @@ export default function IdEntry({
 					const allocationResult = await addPart(
 						db,
 						addPartParams,
-						Number(quantity == '' ? 1 : quantity),
+						quantity || 1,
 						setId || undefined,
 					);
 					onAllocationUpdate(
 						allocationResult,
-						partNumber ? {partNumber, colorId: Number(colorId)} : {elementId},
+						partNumber && colorId !== null
+							? {partNumber, colorId}
+							: {elementId},
 					);
 					setPartNumber('');
-					setColorId('');
+					setColorId(null);
 					setElementId('');
-					setQuantity('1');
+					setQuantity(1);
 					if (setId) {
 						setSetId('');
 						setStatus(`Part added to set ${setId} successfully`);
@@ -227,7 +229,7 @@ export default function IdEntry({
 		} else if (key.escape) {
 			if (isFocused.setId || isFocused.priority) {
 				setSetId('');
-				setPriority(fixPriorities(db) + '');
+				setPriority(fixPriorities(db));
 			} else if (
 				isFocused.partNumber ||
 				isFocused.colorId ||
@@ -235,9 +237,9 @@ export default function IdEntry({
 				isFocused.quantity
 			) {
 				setPartNumber('');
-				setColorId('');
+				setColorId(null);
 				setElementId('');
-				setQuantity('1');
+				setQuantity(1);
 			}
 			setStatus('');
 			const current = trueFocus(isFocused);
@@ -323,16 +325,14 @@ export default function IdEntry({
 							onChange={setColorId}
 							placeholder="Enter color ID"
 							focusKey="colorId"
-							width={colorId?.length ? colorId.length + 2 : 14}
+							width={colorId ? String(colorId).length + 2 : 14}
 							type="number"
 							maxInputLength={4}
 							isActive={isActive && !isInputDisabled}
 						/>
 						{colorId && (
-							<Text
-								color={`#${getColorInfo(Number(colorId))?.rgb || 'FFFFFF'}`}
-							>
-								{getColorInfo(Number(colorId))?.name || 'Unknown Color'}
+							<Text color={`#${getColorInfo(colorId)?.rgb || 'FFFFFF'}`}>
+								{getColorInfo(colorId)?.name || 'Unknown Color'}
 							</Text>
 						)}
 					</Box>
@@ -353,8 +353,8 @@ export default function IdEntry({
 				<Box>
 					<Text>Element ID: </Text>
 					<FocusableTextInput
-						value={elementId}
-						onChange={setElementId}
+						value={Number(elementId)}
+						onChange={id => setElementId(`${id}`)}
 						placeholder="Enter element ID"
 						focusKey="elementId"
 						width={12}

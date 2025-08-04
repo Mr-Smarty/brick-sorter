@@ -6,6 +6,7 @@ import ProgressBar from './util/ProgressBar.js';
 import Gradient from 'ink-gradient';
 import PaginationDisplay from './util/PaginationDisplay.js';
 import type {Set} from '../types/typings.js';
+import {formatPercentage} from '../util/formatPercentage.js';
 
 type SetListProps = {
 	isActive: boolean;
@@ -162,9 +163,14 @@ export default function SetList({isActive}: SetListProps): React.JSX.Element {
 										rightPadCharacter=" "
 									/>
 								</Gradient>
-								<Text>{'|'}</Text>
+								<Text>|</Text>
 								<Box width={6} justifyContent="flex-end">
-									<Text color={completionColor}>
+									<Text
+										color={
+											completionColor ||
+											(set.completion === 1 ? 'green' : undefined)
+										}
+									>
 										{formatPercentage(set.completion)}
 									</Text>
 								</Box>
@@ -202,15 +208,6 @@ export default function SetList({isActive}: SetListProps): React.JSX.Element {
 		</Box>
 	);
 }
-
-const formatPercentage = (value: number): string => {
-	if (value === 0) return '0%';
-	if (value === 1) return '100%';
-	const percentage = value * 100;
-	if (percentage < 0.1) return '<0.1%';
-	if (percentage > 99.9) return '>99.9%';
-	return `${percentage.toFixed(1)}%`;
-};
 
 const cycleSortOrder = (value: 'ASC' | 'DESC' | ''): 'ASC' | 'DESC' | '' => {
 	if (value === 'ASC') return 'DESC';

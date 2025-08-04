@@ -6,7 +6,12 @@ import {Text, useInput} from 'ink';
 import chalk from 'chalk';
 import type {Except} from 'type-fest';
 
-export type Props = {
+type InputType = 'string' | 'character' | 'number' | 'float';
+type ValueType<T extends InputType> = T extends 'number' | 'float'
+	? number | null
+	: string;
+
+export type Props<T extends InputType = 'string'> = {
 	/**
 	 * Text to display when `value` is empty.
 	 */
@@ -35,7 +40,7 @@ export type Props = {
 	 * - `number` - allows only digits
 	 * - `float` - allows digits and a single dot
 	 */
-	readonly type?: 'string' | 'character' | 'number' | 'float';
+	readonly type?: T;
 	/**
 	 * Maximum length of input.
 	 */
@@ -47,32 +52,32 @@ export type Props = {
 	/**
 	 * Function to call when value updates.
 	 */
-	readonly onChange: (value: string) => void;
+	readonly onChange: (value: ValueType<T>) => void;
 	/**
 	 * Function to call when `Enter` is pressed, where first argument is a value of the input.
 	 */
-	readonly onSubmit?: (value: string) => void;
+	readonly onSubmit?: (value: ValueType<T>) => void;
 };
 
-type UncontrolledProps = {
+type UncontrolledProps<T extends InputType = 'string'> = {
 	/**
-	 * Initial value.
+	 * Initial value of the input.
 	 */
-	readonly initialValue?: string;
-} & Except<Props, 'value' | 'onChange'>;
+	readonly initialValue?: ValueType<T>;
+} & Except<Props<T>, 'value' | 'onChange'>;
 
-function TextInput({
+function TextInput<T extends InputType = 'string'>({
 	value: originalValue,
 	placeholder = '',
 	focus = true,
 	mask,
 	highlightPastedText = false,
-	type = 'string',
+	type = 'string' as T,
 	maxInputLength,
 	showCursor = true,
 	onChange,
 	onSubmit,
-}: Props): React.JSX.Element {
+}: Props<T>): React.JSX.Element {
 	const [state, setState] = useState({
 		cursorOffset: (originalValue || '').length,
 		cursorWidth: 0,
@@ -130,7 +135,8 @@ function TextInput({
 			}
 			if (key.return) {
 				if (onSubmit) {
-					onSubmit(originalValue);
+					const outputValue = toValueType(originalValue, type);
+					onSubmit(outputValue);
 				}
 				return;
 			}
@@ -197,7 +203,8 @@ function TextInput({
 				nextValue = nextValue.slice(0, maxInputLength);
 
 			if (nextValue !== originalValue) {
-				onChange(nextValue);
+				const outputValue = toValueType(nextValue, type);
+				onChange(outputValue);
 			}
 		},
 		{isActive: focus},
@@ -213,14 +220,29 @@ function TextInput({
 	);
 }
 export default TextInput;
-export function UncontrolledTextInput({
-	initialValue = '',
+export function UncontrolledTextInput<T extends InputType = 'string'>({
+	initialValue = '' as ValueType<T>,
 	...props
-}: UncontrolledProps): React.JSX.Element {
-	const [value, setValue] = useState(initialValue);
-	return React.createElement(TextInput, {
-		...props,
-		value: value,
-		onChange: setValue,
+}: UncontrolledProps<T>): React.JSX.Element {
+	const [value, setValue] = useState<ValueType<T>>(
+		initialValue ?? ('' as ValueType<T>),
+	);
+
+	const handleChange = (val: ValueType<T>) => {
+		setValue(val);
+	};
+
+	const Component = TextInput as React.ComponentType<Props<T>>;
+	return React.createElement(Component, {
+		...(props as Props<T>),
+		value: value as Props<T>['value'],
+		onChange: handleChange,
 	});
+}
+
+function toValueType<T extends InputType>(raw: string, type: T): ValueType<T> {
+	if (type === 'number' || type === 'float') {
+		return (raw.trim() === '' ? null : Number(raw)) as ValueType<T>;
+	}
+	return raw as ValueType<T>;
 }
