@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 import {Text, Box, useInput} from 'ink';
-import Spinner from 'ink-spinner';
+import {Spinner} from '@inkjs/ui';
 import open from 'open';
 import {captureImage} from '../util/camera.js';
 import {recognizePart} from '../util/brickognizeApi.js';
@@ -399,12 +399,7 @@ export default function CameraCapture({
 			{(isCapturing || isLoadingColors || status) && (
 				<Box>
 					{isCapturing || isLoadingColors ? (
-						<Text>
-							<Text color="green">
-								<Spinner type="dots" />
-							</Text>
-							{status.text}
-						</Text>
+						<Spinner label={status.text} />
 					) : (
 						<Text color={status.color}>{status.text}</Text>
 					)}

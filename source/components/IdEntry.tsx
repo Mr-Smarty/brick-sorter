@@ -7,7 +7,7 @@ import addSet from '../util/addSet.js';
 import addPart from '../util/addPart.js';
 import fixPriorities from '../util/fixPriorities.js';
 import CameraCapture from './CameraCapture.js';
-import Spinner from 'ink-spinner';
+import {Spinner} from '@inkjs/ui';
 import {
 	getColorInfo,
 	getElementDetails,
@@ -279,12 +279,7 @@ export default function IdEntry({
 				{(statusField === 'setId' || statusField === 'priority') && status && (
 					<>
 						{isLoading ? (
-							<Text>
-								<Text>
-									<Spinner type="dots" />
-								</Text>
-								{' Loading...'}
-							</Text>
+							<Spinner label="Loading..." />
 						) : (
 							status && (
 								<Text
@@ -377,12 +372,7 @@ export default function IdEntry({
 					status && (
 						<>
 							{isLoading ? (
-								<Text>
-									<Text color="green">
-										<Spinner type="dots" />
-									</Text>
-									{' Loading...'}
-								</Text>
+								<Spinner label="Loading..." />
 							) : (
 								status && (
 									<Text

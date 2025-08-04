@@ -63,8 +63,7 @@ export default function SetPartList({
 				`SELECT id, name, priority, completion
                  FROM lego_sets
                  WHERE id LIKE ? OR name LIKE ?
-                 ORDER BY priority ASC, completion DESC
-                 LIMIT 10`,
+                 ORDER BY priority ASC, completion DESC`,
 			)
 			.all(`%${query}%`, `%${query}%`) as Set[];
 		const exactMatch = results.find(
@@ -92,7 +91,7 @@ export default function SetPartList({
 	};
 
 	return (
-		<Box flexDirection="column">
+		<Box flexDirection="column" flexGrow={1}>
 			{/* Search Input */}
 			{uiState === 'search' && (
 				<Box>
@@ -111,7 +110,7 @@ export default function SetPartList({
 			{uiState === 'loading' && <Text color="yellow">Searching...</Text>}
 
 			{uiState === 'searchSelect' && searchResults.length > 0 && (
-				<Box flexDirection="column">
+				<Box flexDirection="column" flexGrow={1}>
 					<SetSelection
 						sets={searchResults}
 						onSetSelect={handleSetSelect}
