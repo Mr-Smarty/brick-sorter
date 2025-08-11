@@ -8,6 +8,7 @@ import Gradient from 'ink-gradient';
 import ProgressBar from './util/ProgressBar.js';
 import {formatPercentage} from '../util/formatPercentage.js';
 import type {Set} from '../types/typings.js';
+import updateSet from '../util/updateSet.js';
 
 type SetEditState = 'search' | 'searchSelect' | 'edit' | 'loading';
 type SetEditProps = {
@@ -170,15 +171,20 @@ export default function SetEdit({isActive}: SetEditProps): React.JSX.Element {
 							<Box flexShrink={0} flexDirection="row">
 								<Text>
 									{' '}
-									<Text color="gray">(ID: {selectedSet.id})</Text> Priority:
+									<Text color="gray">
+										(ID: {selectedSet.id})
+									</Text> Priority:{' '}
 								</Text>
 								<UncontrolledFocusableTextInput
+									key={selectedSet.priority}
 									placeholder={`${selectedSet.priority}`}
 									initialValue={selectedSet.priority}
 									type="number"
 									onSubmit={value => {
-										setSelectedSet(prev =>
-											prev && value ? {...prev, priority: value} : null,
+										setSelectedSet(
+											updateSet(db, selectedSet, {
+												priority: value || undefined,
+											}),
 										);
 									}}
 									focusKey="priority"

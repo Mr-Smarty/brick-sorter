@@ -24,38 +24,24 @@ interface FocusableTextInputProps<T extends InputType = 'string'> {
 export const FocusableTextInput = forwardRef(function FocusableTextInput<
 	T extends InputType = 'string',
 >(
-	{
-		value,
-		onChange,
-		onSubmit,
-		placeholder,
-		focusKey,
-		width,
-		type = 'string' as T,
-		mask,
-		maxInputLength,
-		isActive,
-	}: FocusableTextInputProps<T>,
+	props: FocusableTextInputProps<T>,
 	ref: React.Ref<{focus: () => void}>,
 ): React.JSX.Element {
-	const {isFocused, focus} = useFocus({id: focusKey, isActive: isActive});
-	useImperativeHandle(ref, () => ({focus: () => focus(focusKey)}), [
+	const {isFocused, focus} = useFocus({
+		id: props.focusKey,
+		isActive: props.isActive,
+	});
+	useImperativeHandle(ref, () => ({focus: () => focus(props.focusKey)}), [
 		focus,
-		focusKey,
+		props.focusKey,
 	]);
 
 	return (
-		<Box flexDirection="column" flexGrow={1} width={width}>
+		<Box flexDirection="column" flexGrow={1} width={props.width}>
 			<TextInput
-				value={String(value)}
-				onChange={onChange}
-				onSubmit={onSubmit}
-				placeholder={placeholder}
-				mask={mask}
-				type={type}
-				maxInputLength={maxInputLength}
-				focus={isActive && isFocused}
-				showCursor={isActive && isFocused}
+				{...props}
+				focus={props.isActive && isFocused}
+				showCursor={props.isActive && isFocused}
 			/>
 		</Box>
 	);
@@ -88,12 +74,8 @@ export const UncontrolledFocusableTextInput = forwardRef(
 		return (
 			<Box flexDirection="column" flexGrow={1} width={props.width}>
 				<UncontrolledTextInput
+					{...props}
 					initialValue={initialValue}
-					onSubmit={props.onSubmit}
-					placeholder={props.placeholder}
-					mask={props.mask}
-					type={props.type}
-					maxInputLength={props.maxInputLength}
 					focus={props.isActive && isFocused}
 					showCursor={props.isActive && isFocused}
 				/>

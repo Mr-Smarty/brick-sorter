@@ -48,7 +48,7 @@ export type Props<T extends InputType = 'string'> = {
 	/**
 	 * Value to display in a text input.
 	 */
-	readonly value: string;
+	readonly value: ValueType<T>;
 	/**
 	 * Function to call when value updates.
 	 */
@@ -78,17 +78,22 @@ function TextInput<T extends InputType = 'string'>({
 	onChange,
 	onSubmit,
 }: Props<T>): React.JSX.Element {
+	const toRawString = (val: ValueType<T>) =>
+		val == null ? '' : String(val) || '';
+	const rawString = toRawString(originalValue);
+
 	const [state, setState] = useState({
-		cursorOffset: (originalValue || '').length,
+		cursorOffset: rawString.length,
 		cursorWidth: 0,
 	});
 	const {cursorOffset, cursorWidth} = state;
 	useEffect(() => {
+		const rawString = originalValue == null ? '' : String(originalValue) || '';
 		setState(previousState => {
 			if (!focus || !showCursor) {
 				return previousState;
 			}
-			const newValue = originalValue || '';
+			const newValue = rawString;
 			if (previousState.cursorOffset > newValue.length - 1) {
 				return {
 					cursorOffset: newValue.length,
@@ -99,7 +104,7 @@ function TextInput<T extends InputType = 'string'>({
 		});
 	}, [originalValue, focus, showCursor]);
 	const cursorActualWidth = highlightPastedText ? cursorWidth : 0;
-	const value = mask ? mask.repeat(originalValue.length) : originalValue;
+	const value = mask ? mask.repeat(rawString.length) : rawString;
 	let renderedValue = value;
 	let renderedPlaceholder = placeholder ? chalk.grey(placeholder) : undefined;
 	// Fake mouse cursor, because it's too inconvenient to deal with actual cursor and ansi escapes
@@ -135,7 +140,7 @@ function TextInput<T extends InputType = 'string'>({
 			}
 			if (key.return) {
 				if (onSubmit) {
-					const outputValue = toValueType(originalValue, type);
+					const outputValue = toValueType(rawString, type);
 					onSubmit(outputValue);
 				}
 				return;
@@ -149,40 +154,50 @@ function TextInput<T extends InputType = 'string'>({
 				}
 			} else if (key.rightArrow) {
 				if (showCursor) {
-					nextCursorOffset = Math.min(originalValue.length, cursorOffset + 1);
+					nextCursorOffset = Math.min(rawString.length, cursorOffset + 1);
 				}
 			} else if (key.backspace) {
 				if (cursorOffset > 0) {
-					nextValue =
-						originalValue.slice(0, cursorOffset - 1) +
-						originalValue.slice(cursorOffset, originalValue.length);
+					nextValue = toValueType(
+						rawString.slice(0, cursorOffset - 1) +
+							rawString.slice(cursorOffset, rawString.length),
+						type,
+					);
 					nextCursorOffset--;
 				}
 			} else if (key.delete) {
-				if (cursorOffset < originalValue.length) {
-					nextValue =
-						originalValue.slice(0, cursorOffset) +
-						originalValue.slice(cursorOffset + 1, originalValue.length);
-					if (cursorOffset >= originalValue.length - 1) {
-						nextCursorOffset = originalValue.length - 1;
+				if (cursorOffset < rawString.length) {
+					nextValue = toValueType(
+						rawString.slice(0, cursorOffset) +
+							rawString.slice(cursorOffset + 1, rawString.length),
+						type,
+					);
+					if (cursorOffset >= rawString.length - 1) {
+						nextCursorOffset = rawString.length - 1;
 					}
 				} else {
-					nextValue = originalValue.slice(0, originalValue.length - 1);
-					nextCursorOffset = originalValue.length - 1;
+					nextValue = toValueType(
+						rawString.slice(0, rawString.length - 1),
+						type,
+					);
+					nextCursorOffset = rawString.length - 1;
 				}
 			} else {
-				nextValue =
-					originalValue.slice(0, cursorOffset) +
-					input +
-					originalValue.slice(cursorOffset, originalValue.length);
+				nextValue = toValueType(
+					rawString.slice(0, cursorOffset) +
+						input +
+						rawString.slice(cursorOffset, rawString.length),
+					type,
+				);
 				nextCursorOffset += input.length;
 				if (input.length > 1) {
 					nextCursorWidth = input.length;
 				}
 			}
+			let nextValueRaw = toRawString(nextValue);
 			nextCursorOffset = Math.max(
 				0,
-				Math.min(nextCursorOffset, nextValue.length),
+				Math.min(nextCursorOffset, nextValueRaw.length),
 			);
 			setState({
 				cursorOffset: nextCursorOffset,
@@ -190,20 +205,23 @@ function TextInput<T extends InputType = 'string'>({
 			});
 
 			if (type === 'number') {
-				nextValue = nextValue.replace(/[^0-9]/g, '');
+				nextValue = toValueType(nextValueRaw.replace(/[^0-9]/g, ''), type);
 			} else if (type === 'float') {
-				nextValue = nextValue.replace(/[^0-9.]/g, '');
-				const parts = nextValue.split('.');
+				nextValue = toValueType(nextValueRaw.replace(/[^0-9.]/g, ''), type);
+				const parts = nextValueRaw.split('.');
 				if (parts.length > 2)
-					nextValue = parts[0] + '.' + parts.slice(1).join('');
+					nextValue = toValueType(
+						parts[0] + '.' + parts.slice(1).join(''),
+						type,
+					);
 			} else if (type === 'character') {
-				nextValue = nextValue.replace(/[^a-z]/gi, '');
+				nextValue = toValueType(nextValueRaw.replace(/[^a-z]/gi, ''), type);
 			}
-			if (maxInputLength !== undefined && nextValue.length > maxInputLength)
-				nextValue = nextValue.slice(0, maxInputLength);
+			if (maxInputLength !== undefined && nextValueRaw.length > maxInputLength)
+				nextValue = toValueType(nextValueRaw.slice(0, maxInputLength), type);
 
 			if (nextValue !== originalValue) {
-				const outputValue = toValueType(nextValue, type);
+				const outputValue = toValueType(nextValueRaw, type);
 				onChange(outputValue);
 			}
 		},

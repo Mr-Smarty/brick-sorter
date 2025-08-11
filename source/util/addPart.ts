@@ -1,5 +1,5 @@
 import {DatabaseSync} from 'node:sqlite';
-import updateSetCompletion from './updateSetCompletion.js';
+import {updateSetCompletion} from '../util/updateSet.js';
 import type {Part} from '../types/typings.js';
 
 type PartNumberComponents = {
