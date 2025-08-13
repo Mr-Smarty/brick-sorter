@@ -23,19 +23,19 @@
 		"axios": "^1.8.3",
 		"dotenv": "^16.4.7",
 		"fullscreen-ink": "^0.0.2",
-		"ink": "^5.2.0",
+		"ink": "^6.1.0",
 		"ink-big-text": "^2.0.0",
 		"ink-gradient": "^3.0.0",
 		"ink-select-input": "^6.2.0",
-		"ink-tab": "^5.1.0",
+		"ink-tab": "^5.2.0",
 		"meow": "^11.0.0",
 		"open": "^10.1.2",
-		"react": "^18.2.0"
+		"react": "^19.1.1"
 	},
 	"devDependencies": {
 		"@sindresorhus/tsconfig": "^3.0.1",
 		"@types/node-webcam": "^0.8.3",
-		"@types/react": "^18.0.32",
+		"@types/react": "^19.1.9",
 		"@vdemedes/prettier-config": "^2.0.1",
 		"ava": "^5.2.0",
 		"chalk": "^5.2.0",
