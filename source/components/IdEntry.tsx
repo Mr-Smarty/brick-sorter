@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect} from 'react';
+import React, {useState, useRef, useEffect, type JSX} from 'react';
 import {Text, Box, useFocus, useFocusManager, useInput} from 'ink';
 import open from 'open';
 import {FocusableTextInput} from './util/FocusableTextInput.js';
@@ -38,11 +38,11 @@ export default function IdEntry({
 	const [status, setStatus] = useState('');
 	const focusableFields = [
 		'setId',
+		'priority',
 		'partNumber',
 		'colorId',
-		'elementId',
-		'priority',
 		'quantity',
+		'elementId',
 	] as const;
 	type focusableFields = (typeof focusableFields)[number];
 	const [statusField, setStatusField] = useState<focusableFields | ''>('');
@@ -268,7 +268,7 @@ export default function IdEntry({
 					<FocusableTextInput
 						value={priority}
 						onChange={setPriority}
-						placeholder="#"
+						placeholder="(last)"
 						focusKey="priority"
 						width={5}
 						type="number"
@@ -415,7 +415,7 @@ export default function IdEntry({
 					selectionPromise?.reject(new Error('Set selection cancelled'));
 					setSelectionPromise(null);
 				}}
-				isActive={isSetSelectionActive}
+				isActive={isActive && isSetSelectionActive}
 			/>
 
 			<CameraCapture

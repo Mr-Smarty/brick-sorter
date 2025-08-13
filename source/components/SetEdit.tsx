@@ -23,7 +23,7 @@ export default function SetEdit({isActive}: SetEditProps): React.JSX.Element {
 	const [selectedSet, setSelectedSet] = useState<Set | null>(null);
 	const [status, setStatus] = useState('');
 
-	const focusableFields = ['priority', 'completion', 'partList'] as const;
+	const focusableFields = ['priority2', 'completion', 'partList'] as const;
 	type focusableFields = (typeof focusableFields)[number];
 	const {focusNext, focusPrevious, focus, disableFocus, enableFocus} =
 		useFocusManager();
@@ -75,6 +75,13 @@ export default function SetEdit({isActive}: SetEditProps): React.JSX.Element {
 					focusNext();
 				} else if (key.upArrow) {
 					focusPrevious();
+				} else if (key.return) {
+					if (isFocused.completion)
+						setSelectedSet(
+							updateSet(db, selectedSet!, {
+								setComplete: selectedSet!.completion >= 0,
+							}),
+						);
 				}
 				break;
 		}
@@ -90,9 +97,9 @@ export default function SetEdit({isActive}: SetEditProps): React.JSX.Element {
 		const results = db
 			.prepare(
 				`SELECT id, name, priority, completion
-                 FROM lego_sets
-                 WHERE id LIKE ? OR name LIKE ?
-                 ORDER BY priority ASC, completion DESC`,
+				 FROM lego_sets
+				 WHERE id LIKE ? OR name LIKE ?
+				 ORDER BY ABS(completion) DESC, priority ASC`,
 			)
 			.all(`%${query}%`, `%${query}%`) as Set[];
 		const exactMatch = results.find(
@@ -138,22 +145,22 @@ export default function SetEdit({isActive}: SetEditProps): React.JSX.Element {
 			{/* Search Results */}
 			{uiState === 'loading' && <Text color="yellow">Searching...</Text>}
 
-			{uiState === 'searchSelect' && searchResults.length > 0 && (
-				<Box flexDirection="column" flexGrow={1}>
-					<SetSelection
-						sets={searchResults}
-						onSetSelect={handleSetSelect}
-						onCancel={() => {
-							setUiState('search');
-							setStatus('');
-						}}
-						isActive={isActive && uiState === 'searchSelect'}
-					/>
-					<Text color="gray">
-						Use arrow keys to navigate • Enter to confirm
-					</Text>
-				</Box>
-			)}
+			<Box
+				flexDirection="column"
+				flexGrow={1}
+				display={uiState === 'searchSelect' ? 'flex' : 'none'}
+			>
+				<SetSelection
+					sets={searchResults}
+					onSetSelect={handleSetSelect}
+					onCancel={() => {
+						setUiState('search');
+						setStatus('');
+					}}
+					isActive={isActive && uiState === 'searchSelect'}
+				/>
+				<Text color="gray">Use arrow keys to navigate • Enter to confirm</Text>
+			</Box>
 
 			{/* Selected Set */}
 			{selectedSet && (
@@ -187,7 +194,7 @@ export default function SetEdit({isActive}: SetEditProps): React.JSX.Element {
 											}),
 										);
 									}}
-									focusKey="priority"
+									focusKey="priority2"
 									isActive={isActive && uiState === 'edit'}
 								/>
 							</Box>
@@ -196,7 +203,7 @@ export default function SetEdit({isActive}: SetEditProps): React.JSX.Element {
 							<Text>|</Text>
 							<Gradient name="retro">
 								<ProgressBar
-									percent={selectedSet.completion}
+									percent={Math.abs(selectedSet.completion)}
 									width="25%"
 									minWidth={30}
 									character="■"
@@ -207,12 +214,18 @@ export default function SetEdit({isActive}: SetEditProps): React.JSX.Element {
 							<Text>|</Text>
 							<Box width={6} justifyContent="flex-end">
 								<Text
-									color={selectedSet.completion === 1 ? 'green' : undefined}
+									color={
+										Math.abs(selectedSet.completion) === 1 &&
+										!isFocused.completion
+											? 'green'
+											: undefined
+									}
+									inverse={isFocused.completion}
 								>
-									{formatPercentage(selectedSet.completion)}
+									{formatPercentage(Math.abs(selectedSet.completion))}
+									{selectedSet.completion < 0 ? '*' : ' '}
 								</Text>
 							</Box>
-							<Text> </Text>
 						</Box>
 					</Box>
 				</Box>

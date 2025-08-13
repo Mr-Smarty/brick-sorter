@@ -31,13 +31,13 @@ export default function updateSet(
 	}
 
 	if (options.setComplete === true) {
-		set.completion = 1;
-		db.prepare('UPDATE lego_sets SET completion = 1 WHERE id = ?').run(set.id);
+		set.completion = -1;
+		db.prepare('UPDATE lego_sets SET completion = -1 WHERE id = ?').run(set.id); // -1 indicates soft completion
 	} else if (options.setComplete === false) {
-		updateSetCompletion(db, set.id);
+		set.completion = updateSetCompletion(db, set.id);
 	}
 
-	return set;
+	return {...set};
 }
 
 /**
@@ -45,7 +45,7 @@ export default function updateSet(
  * @param db Database connection
  * @param setId The ID of the set to update
  */
-export function updateSetCompletion(db: DatabaseSync, setId: string): void {
+export function updateSetCompletion(db: DatabaseSync, setId: string): number {
 	const setParts = db
 		.prepare(
 			`SELECT SUM(quantity_needed) AS total_needed, SUM(quantity_allocated) AS total_allocated
@@ -57,11 +57,13 @@ export function updateSetCompletion(db: DatabaseSync, setId: string): void {
 	if (!setParts || setParts.total_needed === 0) {
 		// If no parts are needed, set completion to 0
 		db.prepare(`UPDATE lego_sets SET completion = 0 WHERE id = ?`).run(setId);
-		return;
+		return 0;
 	}
 
+	const completion = setParts.total_allocated / setParts.total_needed;
 	db.prepare(`UPDATE lego_sets SET completion = ? WHERE id = ?`).run(
-		setParts.total_allocated / setParts.total_needed,
+		completion,
 		setId,
 	);
+	return completion;
 }

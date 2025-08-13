@@ -1,6 +1,6 @@
 import {Box, useFocus} from 'ink';
 import TextInput, {UncontrolledTextInput} from './TextInput.js';
-import React, {forwardRef, useImperativeHandle} from 'react';
+import React, {forwardRef, type JSX, useImperativeHandle} from 'react';
 import type {Except} from 'type-fest';
 
 type InputType = 'string' | 'character' | 'number' | 'float';

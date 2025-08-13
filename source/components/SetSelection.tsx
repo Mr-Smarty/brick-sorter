@@ -1,6 +1,6 @@
-import React from 'react';
+import React, {useMemo, type JSX} from 'react';
 import {Text, Box, useInput} from 'ink';
-import SelectFlex from './util/SelectFlex.js';
+import ScrollerSelect from './util/ScrollerSelect.js';
 import type {Set as ApiSet} from '@rebrickableapi/types/data/set';
 import type {Set} from '../types/typings.js';
 
@@ -17,10 +17,20 @@ export default function SetSelection<T extends Set | ApiSet>({
 	onCancel,
 	isActive,
 }: SetSelectionProps<T>): JSX.Element {
-	const items = sets.map(set => ({
-		label: `${set.name} (ID: ${'set_num' in set ? set.set_num : set.id})`,
-		value: 'set_num' in set ? set.set_num : set.id,
-	}));
+	const items = useMemo(
+		() =>
+			sets.map(set => ({
+				value: 'set_num' in set ? set.set_num : set.id,
+				component: (
+					<Box>
+						<Text>
+							{set.name} (ID: {'set_num' in set ? set.set_num : set.id})
+						</Text>
+					</Box>
+				),
+			})),
+		[sets],
+	);
 
 	const handleSelect = (value: string) => {
 		const selectedSet = sets.find(
@@ -34,26 +44,26 @@ export default function SetSelection<T extends Set | ApiSet>({
 	});
 
 	return (
-		<>
-			{isActive && sets.length && (
-				<Box
-					flexDirection="column"
-					borderStyle="round"
-					borderColor="blue"
-					padding={1}
-					flexGrow={1}
-				>
-					<Text bold>Select a Set:</Text>
-					<Box height={1} flexShrink={0} />
-					<Box flexGrow={1}>
-						<SelectFlex
-							options={items}
-							onChange={handleSelect}
-							isDisabled={!isActive}
-						/>
-					</Box>
-				</Box>
-			)}
-		</>
+		<Box
+			flexDirection="column"
+			borderStyle="round"
+			borderColor="blue"
+			padding={1}
+			flexGrow={1}
+			display={isActive && sets.length > 0 ? 'flex' : 'none'}
+		>
+			<Text bold>Select a Set:</Text>
+			<Box height={1} flexShrink={0} />
+			<Box flexGrow={1}>
+				<ScrollerSelect
+					key={sets.map(s => ('set_num' in s ? s.set_num : s.id)).join('|')}
+					items={items}
+					onChange={handleSelect}
+					isActive={isActive}
+					focusStyle="background"
+					hideScrollBar
+				/>
+			</Box>
+		</Box>
 	);
 }

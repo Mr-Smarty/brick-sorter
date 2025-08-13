@@ -36,7 +36,7 @@ export default function SetList({isActive}: SetListProps): React.JSX.Element {
 			if (sortMode === 'priority' && priorityOrder)
 				query = `SELECT id, name, completion, priority FROM lego_sets ORDER BY priority ${priorityOrder}`;
 			else if (sortMode === 'completion' && completionOrder)
-				query = `SELECT id, name, completion, priority FROM lego_sets ORDER BY completion ${completionOrder}`;
+				query = `SELECT id, name, completion, priority FROM lego_sets ORDER BY ABS(completion) ${completionOrder}`;
 			else query = 'SELECT id, name, completion, priority FROM lego_sets';
 
 			const allSets = db.prepare(query).all() as Array<Set>;
@@ -132,7 +132,7 @@ export default function SetList({isActive}: SetListProps): React.JSX.Element {
 				</Box>
 			</Box>
 
-			<Box flexGrow={1} minHeight={0}>
+			<Box borderStyle="round" borderColor="cyan" flexGrow={1} minHeight={1}>
 				<Scroller ref={scrollerRef} isActive={isActive} characters={['█', '▒']}>
 					{sets.map(set => (
 						<Box
@@ -155,7 +155,7 @@ export default function SetList({isActive}: SetListProps): React.JSX.Element {
 								<Text>|</Text>
 								<Gradient name="retro">
 									<ProgressBar
-										percent={set.completion}
+										percent={Math.abs(set.completion)}
 										width="25%"
 										minWidth={30}
 										character="■"
@@ -168,10 +168,11 @@ export default function SetList({isActive}: SetListProps): React.JSX.Element {
 									<Text
 										color={
 											completionColor ||
-											(set.completion === 1 ? 'green' : undefined)
+											(Math.abs(set.completion) === 1 ? 'green' : undefined)
 										}
 									>
-										{formatPercentage(set.completion)}
+										{formatPercentage(Math.abs(set.completion))}
+										{set.completion < 0 ? '*' : ' '}
 									</Text>
 								</Box>
 							</Box>

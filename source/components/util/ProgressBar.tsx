@@ -54,6 +54,8 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 
 		if (percent < 1 && filledWidth === availableSpace) {
 			filledWidth = availableSpace - 1;
+		} else if (percent === 0) {
+			filledWidth = 0;
 		}
 
 		const bar = character.repeat(filledWidth);

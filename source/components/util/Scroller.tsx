@@ -47,14 +47,23 @@ const reducer = (state: any, action: any) => {
 	}
 };
 
-export interface Props {
+export interface ScrollerProps {
 	isActive: boolean;
 	children: React.ReactNode;
 	characters?: string | [string, string];
 	keys?: [keyof Key, keyof Key];
+	hideScrollBar?: boolean;
+	onResize?: (height: number, innerHeight: number) => void;
 }
 export default forwardRef(function Scroller(
-	{isActive, children, keys = ['upArrow', 'downArrow'], characters}: Props,
+	{
+		isActive,
+		children,
+		characters,
+		keys = ['upArrow', 'downArrow'],
+		hideScrollBar = false,
+		onResize,
+	}: ScrollerProps,
 	ref: React.Ref<{setScroll: (pos: number) => void}>,
 ): React.JSX.Element {
 	const [state, dispatch] = useReducer(reducer, {
@@ -64,8 +73,8 @@ export default forwardRef(function Scroller(
 	});
 	const [_hasRendered, setHasRendered] = useState(false);
 
-	const wrapperRef = useRef();
-	const innerRef = useRef();
+	const wrapperRef = useRef<any>(null);
+	const innerRef = useRef<any>(null);
 
 	// Expose resetScroll function via ref
 	useImperativeHandle(ref, () => ({
@@ -97,12 +106,14 @@ export default forwardRef(function Scroller(
 
 					dispatch({
 						type: 'SET_HEIGHT',
-						height: Math.max(0, wrapperBox.height - 2), // subtract for border
+						height: Math.max(0, wrapperBox.height),
 					});
 					dispatch({
 						type: 'SET_INNER_HEIGHT',
 						innerHeight: innerBox.height,
 					});
+
+					onResize?.(wrapperBox.height, innerBox.height);
 				}
 			}, 0);
 		});
@@ -134,42 +145,38 @@ export default forwardRef(function Scroller(
 		<Box
 			// @ts-ignore
 			ref={wrapperRef}
-			flexDirection="column"
-			borderStyle="round"
-			borderColor="cyan"
+			flexDirection="row"
 			flexGrow={1}
 			width="100%"
 			minHeight={1}
 		>
-			<Box flexDirection="row" flexGrow={1} width="100%">
-				{/* Scrollable container */}
+			{/* Scrollable container */}
+			<Box
+				height={state.height}
+				overflow="hidden"
+				flexDirection="column"
+				width="100%"
+			>
 				<Box
-					height={state.height}
-					overflow="hidden"
+					// @ts-ignore
+					ref={innerRef}
 					flexDirection="column"
-					width="100%"
+					flexShrink={0}
+					marginTop={state.innerHeight > state.height ? -state.scrollTop : 0}
 				>
-					<Box
-						// @ts-ignore
-						ref={innerRef}
-						flexDirection="column"
-						flexShrink={0}
-						marginTop={state.innerHeight > state.height ? -state.scrollTop : 0}
-					>
-						{children}
-					</Box>
+					{children}
 				</Box>
+			</Box>
 
-				{/* Vertical scrollbar */}
-				<Box flexShrink={0}>
-					<ScrollBar
-						containerDim={state.height}
-						contentDim={state.innerHeight}
-						scrollPos={state.scrollTop}
-						direction="vertical"
-						characters={characters}
-					/>
-				</Box>
+			{/* Vertical scrollbar */}
+			<Box flexShrink={0} display={hideScrollBar ? 'none' : 'flex'}>
+				<ScrollBar
+					containerDim={state.height}
+					contentDim={state.innerHeight}
+					scrollPos={state.scrollTop}
+					direction="vertical"
+					characters={characters}
+				/>
 			</Box>
 		</Box>
 	);
