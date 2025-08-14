@@ -9,6 +9,8 @@ import React, {
 } from 'react';
 import {Box, Text, useInput, measureElement, Key} from 'ink';
 
+export type KeyInput = (input: string, key: Key) => boolean;
+
 const reducer = (state: any, action: any) => {
 	switch (action.type) {
 		case 'SET_HEIGHT':
@@ -51,7 +53,7 @@ export interface ScrollerProps {
 	isActive: boolean;
 	children: React.ReactNode;
 	characters?: string | [string, string];
-	keys?: [keyof Key, keyof Key];
+	keys?: Partial<{up: keyof Key | KeyInput; down: keyof Key | KeyInput}>;
 	hideScrollBar?: boolean;
 	onResize?: (height: number, innerHeight: number) => void;
 }
@@ -60,7 +62,7 @@ export default forwardRef(function Scroller(
 		isActive,
 		children,
 		characters,
-		keys = ['upArrow', 'downArrow'],
+		keys,
 		hideScrollBar = false,
 		onResize,
 	}: ScrollerProps,
@@ -125,16 +127,25 @@ export default forwardRef(function Scroller(
 			dispatch({type: 'SET_SCROLL_TOP', scrollTop: maxScroll});
 	}, [state.innerHeight, state.height]);
 
-	useInput((_input, key) => {
+	useInput((input, key) => {
 		if (!isActive) return;
 
-		if (key[keys[0]]) {
+		const up = keys?.up ?? 'upArrow';
+		const down = keys?.down ?? 'downArrow';
+
+		if (
+			(typeof up === 'string' && key[up]) ||
+			(typeof up === 'function' && up(input, key))
+		) {
 			dispatch({
 				type: 'SCROLL_UP',
 			});
 		}
 
-		if (key[keys[1]]) {
+		if (
+			(typeof down === 'string' && key[down]) ||
+			(typeof down === 'function' && down(input, key))
+		) {
 			dispatch({
 				type: 'SCROLL_DOWN',
 			});

@@ -13,9 +13,13 @@ import updateSet from '../util/updateSet.js';
 type SetEditState = 'search' | 'searchSelect' | 'edit' | 'loading';
 type SetEditProps = {
 	isActive: boolean;
+	set: Set | null;
 };
 
-export default function SetEdit({isActive}: SetEditProps): React.JSX.Element {
+export default function SetEdit({
+	isActive,
+	set,
+}: SetEditProps): React.JSX.Element {
 	const db = useDatabase();
 	const [uiState, setUiState] = useState<SetEditState>('search');
 	const [searchQuery, setSearchQuery] = useState('');
@@ -44,6 +48,11 @@ export default function SetEdit({isActive}: SetEditProps): React.JSX.Element {
 			if (lastFocused) focus(lastFocused);
 		} else disableFocus();
 	}, [isActive, uiState]);
+
+	useEffect(() => {
+		if (!isActive || !set) return;
+		handleSetSelect(set);
+	}, [isActive, set, db]);
 
 	useInput((_input, key) => {
 		if (!isActive || uiState === 'loading') return;

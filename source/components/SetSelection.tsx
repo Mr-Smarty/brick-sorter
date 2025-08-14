@@ -32,9 +32,9 @@ export default function SetSelection<T extends Set | ApiSet>({
 		[sets],
 	);
 
-	const handleSelect = (value: string) => {
+	const handleSelect = (value: unknown) => {
 		const selectedSet = sets.find(
-			set => ('set_num' in set ? set.set_num : set.id) === value,
+			set => ('set_num' in set ? set.set_num : set.id) === String(value),
 		);
 		if (selectedSet) onSetSelect(selectedSet);
 	};

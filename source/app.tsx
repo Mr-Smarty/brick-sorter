@@ -9,6 +9,7 @@ import {DatabaseProvider} from './context/DatabaseContext.js';
 import {Box, Text} from 'ink';
 import {Tab, Tabs} from 'ink-tab';
 import SetEdit from './components/SetEdit.js';
+import type {Set} from './types/typings.js';
 
 const MIN_WIDTH = 100; // Minimum terminal width
 const MIN_HEIGHT = 24; // Minimum terminal height
@@ -36,6 +37,7 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 		  }
 		| {elementId: string}
 	>();
+	const [editSet, setEditSet] = useState<Set | null>(null);
 
 	const handleAllocationUpdate = (
 		newAllocations: Array<{setId: string; setName: string; allocated: number}>,
@@ -98,7 +100,13 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 					flexGrow={1}
 					display={activeTab === 'sets' ? 'flex' : 'none'}
 				>
-					<SetList isActive={activeTab === 'sets'} />
+					<SetList
+						isActive={activeTab === 'sets'}
+						onOpenSet={set => {
+							setEditSet(set);
+							setActiveTab('setEdit');
+						}}
+					/>
 				</Box>
 
 				<Box
@@ -106,7 +114,7 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 					flexGrow={1}
 					display={activeTab === 'setEdit' ? 'flex' : 'none'}
 				>
-					<SetEdit isActive={activeTab === 'setEdit'} />
+					<SetEdit isActive={activeTab === 'setEdit'} set={editSet} />
 				</Box>
 
 				<Box
@@ -117,8 +125,9 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 					width="100%"
 				>
 					<Tabs
+						key={activeTab}
 						onChange={name => setActiveTab(name)}
-						defaultValue="dashboard"
+						defaultValue={activeTab}
 						showIndex={false}
 						colors={{activeTab: {color: 'cyan'}}}
 						keyMap={{

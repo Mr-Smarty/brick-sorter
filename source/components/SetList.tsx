@@ -1,7 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {useDatabase} from '../context/DatabaseContext.js';
 import {Box, Text, useInput} from 'ink';
-import Scroller from './util/Scroller.js';
+import ScrollerSelect from './util/ScrollerSelect.js';
 import ProgressBar from './util/ProgressBar.js';
 import Gradient from 'ink-gradient';
 import PaginationDisplay from './util/PaginationDisplay.js';
@@ -10,9 +10,13 @@ import {formatPercentage} from '../util/formatPercentage.js';
 
 type SetListProps = {
 	isActive: boolean;
+	onOpenSet: (set: Set) => void;
 };
 
-export default function SetList({isActive}: SetListProps): React.JSX.Element {
+export default function SetList({
+	isActive,
+	onOpenSet,
+}: SetListProps): React.JSX.Element {
 	const db = useDatabase();
 	const [sets, setSets] = useState<Array<Set>>([]);
 	const [currentPage, setCurrentPage] = useState(1);
@@ -28,7 +32,10 @@ export default function SetList({isActive}: SetListProps): React.JSX.Element {
 		'DESC',
 	);
 
-	const scrollerRef = useRef<{setScroll: (pos: number) => void}>(null);
+	const scrollerRef = useRef<{
+		setScroll: (pos: number) => void;
+		clearSelection: () => void;
+	}>(null);
 
 	useEffect(() => {
 		if (isActive) {
@@ -89,6 +96,7 @@ export default function SetList({isActive}: SetListProps): React.JSX.Element {
 			setSortMode('priority');
 			setPriorityOrder('ASC');
 			setCompletionOrder('');
+			scrollerRef.current?.setScroll(0);
 		}
 	});
 
@@ -133,56 +141,71 @@ export default function SetList({isActive}: SetListProps): React.JSX.Element {
 			</Box>
 
 			<Box borderStyle="round" borderColor="cyan" flexGrow={1} minHeight={1}>
-				<Scroller ref={scrollerRef} isActive={isActive} characters={['█', '▒']}>
-					{sets.map(set => (
-						<Box
-							key={set.id}
-							flexDirection="row"
-							flexShrink={0}
-							width="100%"
-							justifyContent="space-between"
-						>
-							<Box flexDirection="row">
-								<Box flexShrink={0}>
-									<Text color={priorityColor}>{`${set.priority}. `}</Text>
+				<ScrollerSelect
+					ref={scrollerRef}
+					isActive={isActive}
+					characters={['█', '▒']}
+					onChange={value => {
+						const selectedSet = sets.find(set => set.id === value);
+						if (selectedSet) onOpenSet(selectedSet);
+						scrollerRef.current?.clearSelection();
+					}}
+					keys={{
+						select: (input, key) => key.ctrl && input === 'o',
+					}}
+					items={sets.map(set => ({
+						component: (
+							<Box
+								key={set.id}
+								flexDirection="row"
+								flexShrink={0}
+								flexGrow={1}
+								justifyContent="space-between"
+							>
+								<Box flexDirection="row">
+									<Box flexShrink={0}>
+										<Text color={priorityColor}>{`${set.priority}. `}</Text>
+									</Box>
+									<Text wrap="truncate">{set.name}</Text>
+									<Box flexShrink={0}>
+										<Text color="gray">{` (ID: ${set.id}) `}</Text>
+									</Box>
 								</Box>
-								<Text wrap="truncate">{set.name}</Text>
-								<Box flexShrink={0}>
-									<Text color="gray">{` (ID: ${set.id}) `}</Text>
+								<Box flexDirection="row" flexShrink={0}>
+									<Text>|</Text>
+									<Gradient name="retro">
+										<ProgressBar
+											percent={Math.abs(set.completion)}
+											width="25%"
+											minWidth={30}
+											character="■"
+											rightPad={true}
+											rightPadCharacter=" "
+										/>
+									</Gradient>
+									<Text>|</Text>
+									<Box width={6} justifyContent="flex-end">
+										<Text
+											color={
+												completionColor ||
+												(Math.abs(set.completion) === 1 ? 'green' : undefined)
+											}
+										>
+											{formatPercentage(Math.abs(set.completion))}
+											{set.completion < 0 ? '*' : ' '}
+										</Text>
+									</Box>
 								</Box>
 							</Box>
-							<Box flexDirection="row" flexShrink={0}>
-								<Text>|</Text>
-								<Gradient name="retro">
-									<ProgressBar
-										percent={Math.abs(set.completion)}
-										width="25%"
-										minWidth={30}
-										character="■"
-										rightPad={true}
-										rightPadCharacter=" "
-									/>
-								</Gradient>
-								<Text>|</Text>
-								<Box width={6} justifyContent="flex-end">
-									<Text
-										color={
-											completionColor ||
-											(Math.abs(set.completion) === 1 ? 'green' : undefined)
-										}
-									>
-										{formatPercentage(Math.abs(set.completion))}
-										{set.completion < 0 ? '*' : ' '}
-									</Text>
-								</Box>
-							</Box>
-						</Box>
-					))}
-				</Scroller>
+						),
+						value: set.id,
+					}))}
+				/>
 			</Box>
 
 			<Box justifyContent="center" alignItems="center" flexDirection="column">
 				<Box>
+					<Text color="gray">ctrl+o to open Set Edit. </Text>
 					<Text>Sort by: </Text>
 					<Text color="gray">{'← '}</Text>
 					<Text color={priorityColor} bold={sortMode === 'priority'}>

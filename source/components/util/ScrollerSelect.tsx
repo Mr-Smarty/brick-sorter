@@ -1,50 +1,77 @@
-import React, {useState, useEffect, useRef} from 'react';
-import {useInput, Box, Text, type BoxProps} from 'ink';
+import React, {
+	useState,
+	useEffect,
+	useRef,
+	forwardRef,
+	useImperativeHandle,
+} from 'react';
+import {useInput, Box, Text, type BoxProps, type Key} from 'ink';
 import Scroller, {type ScrollerProps} from './Scroller.js';
+import type {KeyInput} from './Scroller.js';
 
 export interface ScrollerSelectItem<ValueType> {
 	component: React.ReactElement;
 	value: ValueType;
 }
-export interface ScrollerSelectPointerProps<ValueType>
-	extends Omit<ScrollerProps, 'children'> {
+export interface ScrollerSelectPointerProps<ValueType> extends ScrollerProps {
 	items: ScrollerSelectItem<ValueType>[];
 	focusStyle?: 'pointer';
 }
 export interface ScrollerSelectBackgroundProps<ValueType>
-	extends Omit<ScrollerProps, 'children'> {
+	extends ScrollerProps {
 	items: ScrollerSelectItem<ValueType>[];
 	focusStyle: 'background';
 	backgroundColor?: BoxProps['backgroundColor'];
 }
-export type ScrollerSelectProps<ValueType> = (
+export type ScrollerSelectProps<ValueType> = Omit<
 	| ScrollerSelectPointerProps<ValueType>
-	| ScrollerSelectBackgroundProps<ValueType>
-) & {
+	| ScrollerSelectBackgroundProps<ValueType>,
+	'children'
+> & {
 	onChange?: (value: ValueType) => void;
 	pointerChar?: string;
+	keys?: Partial<{
+		select: keyof Key | KeyInput;
+	}>;
 };
 
-export default function ScrollerSelect<ValueType>({
-	isActive,
-	items,
-	onChange,
-	characters,
-	keys = ['upArrow', 'downArrow'],
-	hideScrollBar = false,
-	focusStyle = 'pointer',
-	pointerChar = '>',
-}: ScrollerSelectProps<ValueType>): React.JSX.Element {
+export default forwardRef(function ScrollerSelect<ValueType>(
+	{
+		isActive,
+		items,
+		onChange,
+		characters,
+		keys,
+		hideScrollBar = false,
+		focusStyle = 'pointer',
+		pointerChar = '>',
+	}: ScrollerSelectProps<ValueType>,
+	ref: React.Ref<{
+		setScroll: (pos: number) => void;
+		clearSelection: () => void;
+	}>,
+): React.JSX.Element {
 	const [focusedIndex, setFocusedIndex] = useState(0);
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 	const scrollRef = useRef<{
 		setScroll: (pos: number) => void;
+		clearSelection: () => void;
 	}>(null);
 
 	const handleResize = () =>
 		isActive && scrollRef.current
 			? scrollRef.current.setScroll(focusedIndex)
 			: null;
+
+	useImperativeHandle(ref, () => ({
+		setScroll: (pos: number) => {
+			if (scrollRef.current) {
+				scrollRef.current.setScroll(pos);
+				setFocusedIndex(pos);
+			}
+		},
+		clearSelection: () => setSelectedIndex(null),
+	}));
 
 	// Ensure focused item is visible
 	useEffect(() => {
@@ -53,11 +80,27 @@ export default function ScrollerSelect<ValueType>({
 		}
 	}, [focusedIndex, isActive]);
 
-	useInput((_, key) => {
+	useInput((input, key) => {
 		if (!isActive) return;
-		if (key.upArrow) setFocusedIndex(i => Math.max(0, i - 1));
-		if (key.downArrow) setFocusedIndex(i => Math.min(items.length - 1, i + 1));
-		if (key.return) {
+
+		const up = keys?.up ?? 'upArrow';
+		const down = keys?.down ?? 'downArrow';
+		const select = keys?.select ?? 'return';
+
+		if (
+			(typeof up === 'string' && key[up]) ||
+			(typeof up === 'function' && up(input, key))
+		)
+			setFocusedIndex(i => Math.max(0, i - 1));
+		if (
+			(typeof down === 'string' && key[down]) ||
+			(typeof down === 'function' && down(input, key))
+		)
+			setFocusedIndex(i => Math.min(items.length - 1, i + 1));
+		if (
+			(typeof select === 'string' && key[select]) ||
+			(typeof select === 'function' && select(input, key))
+		) {
 			setSelectedIndex(focusedIndex);
 			if (items[focusedIndex]) {
 				onChange?.(items[focusedIndex].value);
@@ -107,4 +150,4 @@ export default function ScrollerSelect<ValueType>({
 			})}
 		</Scroller>
 	);
-}
+});
