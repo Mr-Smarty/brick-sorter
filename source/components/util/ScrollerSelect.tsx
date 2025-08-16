@@ -5,7 +5,7 @@ import React, {
 	forwardRef,
 	useImperativeHandle,
 } from 'react';
-import {useInput, Box, Text, type BoxProps, type Key} from 'ink';
+import {useInput, Box, Text, type Key, BoxProps} from 'ink';
 import Scroller, {type ScrollerProps} from './Scroller.js';
 import type {KeyInput} from './Scroller.js';
 
@@ -13,27 +13,22 @@ export interface ScrollerSelectItem<ValueType> {
 	component: React.ReactElement;
 	value: ValueType;
 }
-export interface ScrollerSelectPointerProps<ValueType> extends ScrollerProps {
+
+export interface ScrollerSelectProps<ValueType>
+	extends Omit<ScrollerProps, 'children'> {
 	items: ScrollerSelectItem<ValueType>[];
-	focusStyle?: 'pointer';
-}
-export interface ScrollerSelectBackgroundProps<ValueType>
-	extends ScrollerProps {
-	items: ScrollerSelectItem<ValueType>[];
-	focusStyle: 'background';
-	backgroundColor?: BoxProps['backgroundColor'];
-}
-export type ScrollerSelectProps<ValueType> = Omit<
-	| ScrollerSelectPointerProps<ValueType>
-	| ScrollerSelectBackgroundProps<ValueType>,
-	'children'
-> & {
+	focusStyle?: 'pointer' | 'background';
 	onChange?: (value: ValueType) => void;
+	keys?: ScrollerProps['keys'] &
+		Partial<{
+			select: keyof Key | KeyInput;
+		}>;
 	pointerChar?: string;
-	keys?: Partial<{
-		select: keyof Key | KeyInput;
+	colors?: Partial<{
+		focused: BoxProps['backgroundColor'];
+		selected: BoxProps['backgroundColor'];
 	}>;
-};
+}
 
 export default forwardRef(function ScrollerSelect<ValueType>(
 	{
@@ -45,10 +40,11 @@ export default forwardRef(function ScrollerSelect<ValueType>(
 		hideScrollBar = false,
 		focusStyle = 'pointer',
 		pointerChar = '>',
+		colors = {focused: 'cyan', selected: 'green'},
 	}: ScrollerSelectProps<ValueType>,
 	ref: React.Ref<{
-		setScroll: (pos: number) => void;
-		clearSelection: () => void;
+		setScroll?: (pos: number) => void;
+		clearSelection?: () => void;
 	}>,
 ): React.JSX.Element {
 	const [focusedIndex, setFocusedIndex] = useState(0);
@@ -87,13 +83,14 @@ export default forwardRef(function ScrollerSelect<ValueType>(
 		const down = keys?.down ?? 'downArrow';
 		const select = keys?.select ?? 'return';
 
+		const oneKey = Object.values(key).filter(v => v).length === 1;
 		if (
-			(typeof up === 'string' && key[up]) ||
+			(typeof up === 'string' && key[up] && oneKey) ||
 			(typeof up === 'function' && up(input, key))
 		)
 			setFocusedIndex(i => Math.max(0, i - 1));
 		if (
-			(typeof down === 'string' && key[down]) ||
+			(typeof down === 'string' && key[down] && oneKey) ||
 			(typeof down === 'function' && down(input, key))
 		)
 			setFocusedIndex(i => Math.min(items.length - 1, i + 1));
@@ -127,18 +124,29 @@ export default forwardRef(function ScrollerSelect<ValueType>(
 							'All items must be <Box> elements when using focusStyle="background".',
 						);
 					}
+					const isFocused = idx === focusedIndex;
+					const isSelected = idx === selectedIndex;
 					return React.cloneElement(component, {
 						...(typeof component.props === 'object' && component.props !== null
 							? component.props
 							: {}),
 						key: String(value),
-						...(idx === focusedIndex ? {backgroundColor: 'cyan'} : {}),
-						...(idx === selectedIndex ? {color: 'green'} : {}),
-					});
+						backgroundColor: isSelected
+							? colors.selected ?? 'green'
+							: isFocused
+							? colors.focused ?? 'cyan'
+							: undefined,
+					} as React.ComponentProps<typeof Box>);
 				} else {
 					return (
 						<Box key={String(value)} flexDirection="row">
-							<Text color={idx === selectedIndex ? 'green' : undefined}>
+							<Text
+								color={
+									idx === selectedIndex
+										? colors.selected ?? 'green'
+										: colors.focused ?? 'cyan'
+								}
+							>
 								{idx === focusedIndex ? pointerChar + ' ' : '  '}
 							</Text>
 							{React.isValidElement(component)

@@ -5,8 +5,10 @@ import ScrollerSelect from './util/ScrollerSelect.js';
 import ProgressBar from './util/ProgressBar.js';
 import Gradient from 'ink-gradient';
 import PaginationDisplay from './util/PaginationDisplay.js';
-import type {Set} from '../types/typings.js';
 import {formatPercentage} from '../util/formatPercentage.js';
+import {usePageState} from '../util/pagination.js';
+import {cycleSortOrder} from '../util/sortOrder.js';
+import type {Set} from '../types/typings.js';
 
 type SetListProps = {
 	isActive: boolean;
@@ -19,9 +21,7 @@ export default function SetList({
 }: SetListProps): React.JSX.Element {
 	const db = useDatabase();
 	const [sets, setSets] = useState<Array<Set>>([]);
-	const [currentPage, setCurrentPage] = useState(1);
-	const [totalPages, setTotalPages] = useState(1);
-	const [pageSize, setPageSize] = useState<number | 'all'>(10);
+	const [page, setPage, handlePageInput] = usePageState();
 	const [sortMode, setSortMode] = useState<'priority' | 'completion'>(
 		'priority',
 	);
@@ -47,14 +47,15 @@ export default function SetList({
 			else query = 'SELECT id, name, completion, priority FROM lego_sets';
 
 			const allSets = db.prepare(query).all() as Array<Set>;
-			setTotalPages(
-				pageSize === 'all' ? 1 : Math.ceil(allSets.length / pageSize),
+			setPage.total(
+				page.size === 'all' ? 1 : Math.ceil(allSets.length / page.size),
 			);
-			const startIndex = pageSize === 'all' ? 0 : (currentPage - 1) * pageSize;
+			const startIndex =
+				page.size === 'all' ? 0 : (page.current - 1) * page.size;
 			const paginatedSets =
-				pageSize === 'all'
+				page.size === 'all'
 					? allSets
-					: allSets.slice(startIndex, startIndex + pageSize);
+					: allSets.slice(startIndex, startIndex + page.size);
 			setSets(paginatedSets);
 		}
 	}, [
@@ -62,13 +63,13 @@ export default function SetList({
 		sortMode,
 		priorityOrder,
 		completionOrder,
-		currentPage,
-		pageSize,
+		page.current,
+		page.size,
 		db,
 	]);
 	useEffect(
 		() => scrollerRef.current?.setScroll(0),
-		[sortMode, priorityOrder, completionOrder, currentPage, pageSize],
+		[sortMode, priorityOrder, completionOrder, page.current, page.size],
 	);
 
 	useInput((_input, key) => {
@@ -81,23 +82,13 @@ export default function SetList({
 		} else if (key.return) {
 			if (sortMode === 'priority') setPriorityOrder(cycleSortOrder);
 			else setCompletionOrder(cycleSortOrder);
-		} else if (key.shift && key.pageDown) {
-			setPageSize(prev => cyclePageSize(prev, 'down'));
-			setCurrentPage(1);
-		} else if (key.shift && key.pageUp) {
-			setPageSize(prev => cyclePageSize(prev, 'up'));
-			setCurrentPage(1);
-		} else if (key.pageDown && currentPage < totalPages) {
-			setCurrentPage(prev => prev + 1);
-		} else if (key.pageUp && currentPage > 1) {
-			setCurrentPage(prev => prev - 1);
 		} else if (key.escape) {
-			setCurrentPage(1);
+			setPage.current(1);
 			setSortMode('priority');
 			setPriorityOrder('ASC');
 			setCompletionOrder('');
 			scrollerRef.current?.setScroll(0);
-		}
+		} else handlePageInput(key);
 	});
 
 	const priorityColor = sortMode === 'priority' ? 'blue' : undefined;
@@ -168,7 +159,7 @@ export default function SetList({
 									</Box>
 									<Text wrap="truncate">{set.name}</Text>
 									<Box flexShrink={0}>
-										<Text color="gray">{` (ID: ${set.id}) `}</Text>
+										<Text color="gray">{` (${set.id}) `}</Text>
 									</Box>
 								</Box>
 								<Box flexDirection="row" flexShrink={0}>
@@ -219,36 +210,16 @@ export default function SetList({
 					<Text color="gray"> (Enter to change Sort order)</Text>
 				</Box>
 				<Box>
-					<Text color="gray">↑/↓ to scroll. </Text>
+					<Text color="gray">↑/↓ to scroll. Esc to reset. </Text>
 					<Text>Page: </Text>
 					<Text color="gray">PgUp </Text>
-					<PaginationDisplay current={currentPage} total={totalPages} />
+					<PaginationDisplay current={page.current} total={page.total} />
 					<Text color="gray"> PgDn</Text>
 					<Text> | Page Size: </Text>
-					<Text>{pageSize}</Text>
+					<Text>{page.size}</Text>
 					<Text color="gray"> (Shift+PgUp/PgDn to change)</Text>
 				</Box>
 			</Box>
 		</Box>
 	);
 }
-
-const cycleSortOrder = (value: 'ASC' | 'DESC' | ''): 'ASC' | 'DESC' | '' => {
-	if (value === 'ASC') return 'DESC';
-	if (value === 'DESC') return '';
-	return 'ASC';
-};
-
-const pageSizeOptions: Array<number | 'all'> = [10, 20, 50, 100, 'all'];
-const cyclePageSize = (
-	value: number | 'all',
-	direction: 'up' | 'down',
-): number | 'all' => {
-	const index = pageSizeOptions.indexOf(value);
-	if (direction === 'up') {
-		return pageSizeOptions[(index + 1) % pageSizeOptions.length]!;
-	}
-	return pageSizeOptions[
-		(index - 1 + pageSizeOptions.length) % pageSizeOptions.length
-	]!;
-};

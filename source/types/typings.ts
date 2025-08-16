@@ -14,6 +14,13 @@ export interface Set {
 	completion: number;
 }
 
+export interface SetPart extends Part {
+	set_id: string;
+	quantity_needed: number;
+	quantity_allocated: number;
+	allocation_percent?: number;
+}
+
 export interface PartColor {
 	color_id: number;
 	color_name: string;
