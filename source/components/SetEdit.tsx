@@ -586,7 +586,7 @@ export default function SetEdit({
 										component: (
 											<Box
 												flexDirection="row"
-												flexShrink={0}
+												flexShrink={1}
 												flexGrow={1}
 												justifyContent="space-between"
 											>
@@ -602,11 +602,11 @@ export default function SetEdit({
 														<Text> </Text>
 													</Box>
 													<Text wrap="truncate">{part.name}</Text>
-													<Box flexShrink={0}>
-														{part.element_id && (
-															<Text color="gray"> [{part.element_id}]</Text>
-														)}
-													</Box>
+													{part.element_id && (
+														<Box flexShrink={0}>
+															<Text color="gray"> [{part.element_id}] </Text>
+														</Box>
+													)}
 												</Box>
 												<Box flexDirection="row" flexShrink={0}>
 													{partIsFocused && part.quantity_allocated > 0 && (

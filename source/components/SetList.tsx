@@ -149,7 +149,7 @@ export default function SetList({
 							<Box
 								key={set.id}
 								flexDirection="row"
-								flexShrink={0}
+								flexShrink={1}
 								flexGrow={1}
 								justifyContent="space-between"
 							>
