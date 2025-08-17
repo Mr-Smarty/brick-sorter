@@ -15,10 +15,11 @@ import {
 } from '../util/rebrickableApi.js';
 import SetSelection from './SetSelection.js';
 import type {Set} from '@rebrickableapi/types/data/set';
+import {AllocationInfo} from './AllocationDisplay.js';
 
 interface IdEntryProps {
 	onAllocationUpdate: (
-		allocations: Array<{setId: string; setName: string; allocated: number}>,
+		allocations: Array<AllocationInfo>,
 		part: {partNumber: string; colorId: number} | {elementId: string},
 	) => void;
 	isActive: boolean;
@@ -270,7 +271,7 @@ export default function IdEntry({
 						onChange={setPriority}
 						placeholder="(last)"
 						focusKey="priority"
-						width={5}
+						width={6}
 						type="number"
 						isActive={isActive && !isInputDisabled}
 					/>
@@ -325,12 +326,12 @@ export default function IdEntry({
 							onChange={setColorId}
 							placeholder="Enter color ID"
 							focusKey="colorId"
-							width={colorId ? String(colorId).length + 2 : 14}
+							width={colorId !== null ? String(colorId).length + 2 : 14}
 							type="number"
 							maxInputLength={4}
 							isActive={isActive && !isInputDisabled}
 						/>
-						{colorId && (
+						{colorId !== null && (
 							<Text color={`#${getColorInfo(colorId)?.rgb || 'FFFFFF'}`}>
 								{getColorInfo(colorId)?.name || 'Unknown Color'}
 							</Text>
@@ -353,8 +354,8 @@ export default function IdEntry({
 				<Box>
 					<Text>Element ID: </Text>
 					<FocusableTextInput
-						value={Number(elementId)}
-						onChange={id => setElementId(`${id}`)}
+						value={elementId === '' ? null : Number(elementId)}
+						onChange={id => setElementId(id === null ? '' : `${id}`)}
 						placeholder="Enter element ID"
 						focusKey="elementId"
 						width={12}

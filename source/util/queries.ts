@@ -1,4 +1,4 @@
-import {SetPart} from '../types/typings.js';
+import {Part, SetPart} from '../types/typings.js';
 
 /**
  * Get parts for a set sorted by allocation progress
@@ -109,4 +109,90 @@ export function update_SetPart_quantity(
 			WHERE lego_set_id = '${part.set_id}' AND part_num = '${part.part_num}' AND color_id = ${part.color_id};
 			UPDATE parts SET quantity = quantity + ${quantityChange} 
 			WHERE part_num = '${part.part_num}' AND color_id = ${part.color_id}`;
+}
+
+/**
+ * Get all sets that use a specific part, ordered by priority.
+ * @returns SQL query that when executed returns
+ * ```
+ * Array<{
+ * 	lego_set_id: string;
+ * 	quantity_needed: number;
+ * 	priority: number;
+ * 	set_name: string;
+ * }>
+ * ```
+ */
+export function Sets_with_Part_sortby_priority(
+	partNumber: string,
+	colorId: number,
+): string {
+	return `SELECT 
+				lsp.lego_set_id,
+				lsp.quantity_needed,
+				ls.priority,
+				ls.name as set_name
+			FROM lego_set_parts lsp
+			JOIN lego_sets ls ON lsp.lego_set_id = ls.id
+			WHERE lsp.part_num = '${partNumber}' AND lsp.color_id = ${colorId}
+			ORDER BY ls.priority ASC`;
+}
+
+/**
+ * Get the quantity allocated for a specific part in a set.
+ * @returns SQL query that when executed returns number
+ */
+export function SetPart_quantityAllocated(
+	setId: string,
+	partNum: string,
+	colorId: number,
+): string {
+	return `SELECT COALESCE(quantity_allocated, 0) as allocated
+			FROM lego_set_parts
+			WHERE lego_set_id = '${setId}' AND part_num = '${partNum}' AND color_id = ${colorId}`;
+}
+
+/**
+ * Update the quantity allocated for a specific part in a set.
+ * @returns SQL query that when executed updates the quantity allocated for a set part
+ */
+export function update_SetPart_quantityAllocated(
+	toAllocate: number,
+	setId: string,
+	partNum: string,
+	colorId: number,
+): string {
+	return `UPDATE lego_set_parts 
+			SET quantity_allocated = quantity_allocated + ${toAllocate}
+			WHERE lego_set_id = '${setId}' AND part_num = '${partNum}' AND color_id = ${colorId}`;
+}
+
+/**
+ * Update the quantity for a specific part.
+ * @returns SQL query that when executed updates the quantity for a part
+ */
+export function update_Part_quantity(
+	partNumber: string,
+	colorId: number,
+	quantityChange: number,
+): string;
+export function update_Part_quantity(
+	part: Part,
+	quantityChange: number,
+): string;
+export function update_Part_quantity(
+	a: string | Part,
+	b: number,
+	c?: number,
+): string {
+	if (typeof a === 'string') {
+		const partNumber = a;
+		const colorId = b;
+		const quantityChange = c ?? 0;
+		return `UPDATE parts SET quantity = quantity + ${quantityChange} WHERE part_num = '${partNumber}' AND color_id = ${colorId}`;
+	} else {
+		const part = a;
+		const quantityChange = b;
+		return `UPDATE parts SET quantity = quantity + ${quantityChange} WHERE part_num = '${part.part_num}' AND color_id = ${part.color_id}`;
+	}
 }

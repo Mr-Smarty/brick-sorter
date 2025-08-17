@@ -3,7 +3,9 @@ import BigTextFlex from './components/util/BigTextFlex.js';
 import setup from './util/setup.js';
 import {DatabaseSync} from 'node:sqlite';
 import IdEntry from './components/IdEntry.js';
-import AllocationDisplay from './components/AllocationDisplay.js';
+import AllocationDisplay, {
+	AllocationInfo,
+} from './components/AllocationDisplay.js';
 import SetList from './components/SetList.js';
 import {DatabaseProvider} from './context/DatabaseContext.js';
 import {Box, Text, useStdout} from 'ink';
@@ -28,9 +30,7 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 		height: stdout?.rows ?? 0,
 	});
 	const [activeTab, setActiveTab] = useState('dashboard');
-	const [allocations, setAllocations] = useState<
-		Array<{setId: string; setName: string; allocated: number}>
-	>([]);
+	const [allocations, setAllocations] = useState<Array<AllocationInfo>>([]);
 	const [lastPart, setLastPart] = useState<
 		| {
 				partNumber: string;
@@ -41,7 +41,7 @@ export default function App({dbPath = 'bricks.db'}: Props) {
 	const [editSet, setEditSet] = useState<Set | null>(null);
 
 	const handleAllocationUpdate = (
-		newAllocations: Array<{setId: string; setName: string; allocated: number}>,
+		newAllocations: Array<AllocationInfo>,
 		part:
 			| {
 					partNumber: string;

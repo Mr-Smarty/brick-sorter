@@ -1,6 +1,13 @@
 import {DatabaseSync} from 'node:sqlite';
 import {updateSetCompletion} from '../util/updateSet.js';
 import type {Part} from '../types/typings.js';
+import {
+	SetPart_quantityAllocated,
+	Sets_with_Part_sortby_priority,
+	update_Part_quantity,
+	update_SetPart_quantityAllocated,
+} from './queries.js';
+import {AllocationInfo} from '../components/AllocationDisplay.js';
 
 type PartNumberComponents = {
 	base: string;
@@ -61,7 +68,7 @@ export async function addPart(
 	params: AddPartParams,
 	quantity: number = 1,
 	setId?: string,
-): Promise<Array<{setId: string; setName: string; allocated: number}>> {
+): Promise<Array<AllocationInfo>> {
 	let partNumber: string;
 	let colorId: number;
 
@@ -103,12 +110,18 @@ export async function addPart(
 
 		// Check if set exists
 		const existingSet = db
-			.prepare('SELECT id, name FROM lego_sets WHERE id = ?')
-			.get(setId) as {id: string; name: string} | undefined;
+			.prepare('SELECT id, name, completion FROM lego_sets WHERE id = ?')
+			.get(setId) as {id: string; name: string; completion: number} | undefined;
 
 		if (!existingSet) {
 			throw new Error(`Set ${setId} not found in database. Add the set first.`);
 		}
+
+		// Prevent allocation to soft-completed set
+		if (existingSet.completion < 0)
+			throw new Error(
+				`Set ${setId} is marked complete; Unmark it before allocating parts.`,
+			);
 
 		// Check if this set actually uses this part
 		const setPartRelation = db
@@ -133,6 +146,11 @@ export async function addPart(
 				`Set ${setId} already has enough of part ${partNumber} (color: ${colorId}).`,
 			);
 
+		const beforeRow = db
+			.prepare('SELECT ABS(completion) AS c FROM lego_sets WHERE id = ?')
+			.get(setId) as {c: number} | undefined;
+		const beforeCompletion = beforeRow?.c ?? 0;
+
 		// Begin transaction
 		db.exec('BEGIN TRANSACTION');
 
@@ -141,17 +159,18 @@ export async function addPart(
 
 			// Update the allocated quantity for this set-part relationship
 			db.prepare(
-				`UPDATE lego_set_parts 
-				 SET quantity_allocated = quantity_allocated + ?
-				 WHERE lego_set_id = ? AND part_num = ? AND color_id = ?`,
-			).run(toAllocate, setId, partNumber, colorId);
+				update_SetPart_quantityAllocated(
+					toAllocate,
+					setId,
+					partNumber,
+					colorId,
+				),
+			).run();
 
 			// Update global part inventory
-			db.prepare(
-				'UPDATE parts SET quantity = quantity + ? WHERE part_num = ? AND color_id = ?',
-			).run(toAllocate, partNumber, colorId);
+			db.prepare(update_Part_quantity(partNumber, colorId, toAllocate)).run();
 
-			updateSetCompletion(db, setId);
+			const newCompletion = updateSetCompletion(db, setId);
 
 			db.exec('COMMIT');
 
@@ -160,6 +179,8 @@ export async function addPart(
 					setId: setId,
 					setName: existingSet.name,
 					allocated: toAllocate,
+					firstAllocated: beforeCompletion === 0 && newCompletion > 0,
+					lastNeeded: beforeCompletion < 1 && newCompletion === 1,
 				},
 			];
 		} catch (error) {
@@ -172,35 +193,27 @@ export async function addPart(
 	// Begin transaction for atomicity
 	db.exec('BEGIN TRANSACTION');
 
-	let finalQuantity = existingPart.quantity;
-	const allocations: Array<{
-		setId: string;
-		setName: string;
-		allocated: number;
-	}> = [];
+	const allocations: Array<AllocationInfo> = [];
 
 	try {
 		// Get all sets that use this part, ordered by priority (lowest number = highest priority)
 		const setsUsingPart = db
-			.prepare(
-				`
-				SELECT 
-					lsp.lego_set_id,
-					lsp.quantity_needed,
-					ls.priority,
-					ls.name as set_name
-				FROM lego_set_parts lsp
-				JOIN lego_sets ls ON lsp.lego_set_id = ls.id
-				WHERE lsp.part_num = ? AND lsp.color_id = ?
-				ORDER BY ls.priority ASC
-			`,
-			)
-			.all(partNumber, colorId) as Array<{
+			.prepare(Sets_with_Part_sortby_priority(partNumber, colorId))
+			.all() as Array<{
 			lego_set_id: string;
 			quantity_needed: number;
 			priority: number;
 			set_name: string;
 		}>;
+
+		const beforeCompletions = new Map<string, number>();
+		for (const s of setsUsingPart) {
+			const row = db
+				.prepare('SELECT completion AS c FROM lego_sets WHERE id = ?')
+				.get(s.lego_set_id) as {c: number} | undefined;
+			if (row && row.c < 0) continue; // Skip soft-completed sets
+			beforeCompletions.set(s.lego_set_id, row?.c ?? 0);
+		}
 
 		// Allocate parts to sets based on priority
 		let remainingQuantity = quantity;
@@ -209,18 +222,19 @@ export async function addPart(
 		for (const setInfo of setsUsingPart) {
 			if (remainingQuantity <= 0) break;
 
+			// Skip soft-completed sets
+			const completionRow = db
+				.prepare('SELECT completion FROM lego_sets WHERE id = ?')
+				.get(setInfo.lego_set_id) as {completion: number} | undefined;
+			if (completionRow && completionRow.completion < 0) continue;
+			if (!beforeCompletions.has(setInfo.lego_set_id)) continue;
+
 			// Check how many of this part we still need for this set
 			const currentAllocated = db
 				.prepare(
-					`
-					SELECT COALESCE(quantity_allocated, 0) as allocated
-					FROM lego_set_parts 
-					WHERE lego_set_id = ? AND part_num = ? AND color_id = ?
-				`,
+					SetPart_quantityAllocated(setInfo.lego_set_id, partNumber, colorId),
 				)
-				.get(setInfo.lego_set_id, partNumber, colorId) as
-				| {allocated: number}
-				| undefined;
+				.get() as {allocated: number} | undefined;
 
 			const allocated = currentAllocated?.allocated || 0;
 			const stillNeeded = Math.max(0, setInfo.quantity_needed - allocated);
@@ -230,40 +244,40 @@ export async function addPart(
 
 				// Update the allocated quantity for this set-part relationship
 				db.prepare(
-					`
-					UPDATE lego_set_parts 
-					SET quantity_allocated = quantity_allocated + ?
-					WHERE lego_set_id = ? AND part_num = ? AND color_id = ?
-				`,
-				).run(toAllocate, setInfo.lego_set_id, partNumber, colorId);
+					update_SetPart_quantityAllocated(
+						toAllocate,
+						setInfo.lego_set_id,
+						partNumber,
+						colorId,
+					),
+				).run();
 
 				remainingQuantity -= toAllocate;
 				totalAllocated += toAllocate;
+
+				const newCompletion = updateSetCompletion(db, setInfo.lego_set_id);
+				const beforeCompletion =
+					beforeCompletions.get(setInfo.lego_set_id) ?? 0;
 
 				// Track the allocation
 				allocations.push({
 					setId: setInfo.lego_set_id,
 					setName: setInfo.set_name,
 					allocated: toAllocate,
+					firstAllocated: beforeCompletion === 0 && newCompletion > 0,
+					lastNeeded: beforeCompletion < 1 && newCompletion === 1,
 				});
 			}
 		}
 
 		// Only update global inventory with parts that were actually allocated
-		finalQuantity = existingPart.quantity + totalAllocated;
-		db.prepare(
-			'UPDATE parts SET quantity = ? WHERE part_num = ? AND color_id = ?',
-		).run(finalQuantity, partNumber, colorId);
+		db.prepare(update_Part_quantity(partNumber, colorId, totalAllocated)).run();
 
 		// If no parts were allocated, throw an error
 		if (!totalAllocated) {
 			throw new Error(
-				`Part ${partNumber} (color: ${colorId}) is not needed for any sets. ${remainingQuantity} parts not added.`,
+				`Part ${partNumber} (color: ${colorId}) is not needed for any sets not marked complete. ${remainingQuantity} parts not added.`,
 			);
-		}
-
-		for (const allocation of allocations) {
-			updateSetCompletion(db, allocation.setId);
 		}
 
 		db.exec('COMMIT');

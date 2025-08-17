@@ -2,10 +2,12 @@ import React from 'react';
 import {Box, Text} from 'ink';
 import {getColorInfo} from '../util/rebrickableApi.js';
 
-interface AllocationInfo {
+export interface AllocationInfo {
 	setId: string;
 	setName: string;
 	allocated: number;
+	firstAllocated: boolean;
+	lastNeeded: boolean;
 }
 
 interface AllocationDisplayProps {
@@ -31,6 +33,21 @@ export default function AllocationDisplay({
 		);
 	}
 
+	const extra = (allocation: AllocationInfo) => (
+		<>
+			{allocation.firstAllocated && (
+				<Box paddingLeft={4}>
+					<Text color="magenta">First part in set!</Text>
+				</Box>
+			)}
+			{allocation.lastNeeded && (
+				<Box paddingLeft={4}>
+					<Text color="magenta">Set complete!</Text>
+				</Box>
+			)}
+		</>
+	);
+
 	if ('elementId' in part) {
 		return (
 			<Box flexDirection="column" paddingLeft={4} minWidth={40}>
@@ -47,6 +64,7 @@ export default function AllocationDisplay({
 						<Box paddingLeft={4}>
 							<Text color="gray">Quantity: {allocation.allocated}</Text>
 						</Box>
+						{extra(allocation)}
 						{index < allocations.length - 1 && <Box height={1} />}
 					</Box>
 				))}
@@ -72,6 +90,7 @@ export default function AllocationDisplay({
 					<Box paddingLeft={4}>
 						<Text color="gray">Quantity: {allocation.allocated}</Text>
 					</Box>
+					{extra(allocation)}
 					{index < allocations.length - 1 && <Box height={1} />}
 				</Box>
 			))}

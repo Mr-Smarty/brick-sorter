@@ -146,8 +146,10 @@ function TextInput<T extends InputType = 'string'>({
 				return;
 			}
 			let nextCursorOffset = cursorOffset;
-			let nextValue = originalValue;
 			let nextCursorWidth = 0;
+
+			let workingRaw = rawString;
+
 			if (key.leftArrow) {
 				if (showCursor) {
 					nextCursorOffset = Math.max(0, cursorOffset - 1);
@@ -158,72 +160,63 @@ function TextInput<T extends InputType = 'string'>({
 				}
 			} else if (key.backspace) {
 				if (cursorOffset > 0) {
-					nextValue = toValueType(
+					workingRaw =
 						rawString.slice(0, cursorOffset - 1) +
-							rawString.slice(cursorOffset, rawString.length),
-						type,
-					);
+						rawString.slice(cursorOffset);
 					nextCursorOffset--;
 				}
 			} else if (key.delete) {
 				if (cursorOffset < rawString.length) {
-					nextValue = toValueType(
+					workingRaw =
 						rawString.slice(0, cursorOffset) +
-							rawString.slice(cursorOffset + 1, rawString.length),
-						type,
-					);
-					if (cursorOffset >= rawString.length - 1) {
-						nextCursorOffset = rawString.length - 1;
-					}
-				} else {
-					nextValue = toValueType(
-						rawString.slice(0, rawString.length - 1),
-						type,
-					);
-					nextCursorOffset = rawString.length - 1;
+						rawString.slice(cursorOffset + 1);
+				} else if (rawString.length > 0) {
+					workingRaw = rawString.slice(0, rawString.length - 1);
+					nextCursorOffset = Math.max(0, rawString.length - 1);
 				}
 			} else {
-				nextValue = toValueType(
+				workingRaw =
 					rawString.slice(0, cursorOffset) +
-						input +
-						rawString.slice(cursorOffset, rawString.length),
-					type,
-				);
+					input +
+					rawString.slice(cursorOffset);
 				nextCursorOffset += input.length;
-				if (input.length > 1) {
-					nextCursorWidth = input.length;
-				}
+				if (input.length > 1) nextCursorWidth = input.length;
 			}
-			let nextValueRaw = toRawString(nextValue);
+
+			let sanitizedRaw = workingRaw;
+			if (type === 'number') {
+				sanitizedRaw = workingRaw.replace(/[^0-9]/g, '');
+			} else if (type === 'float') {
+				sanitizedRaw = workingRaw.replace(/[^0-9.]/g, '');
+				const parts = sanitizedRaw.split('.');
+				if (parts.length > 2)
+					sanitizedRaw = parts[0] + '.' + parts.slice(1).join('');
+			} else if (type === 'character') {
+				sanitizedRaw = workingRaw.replace(/[^a-z]/gi, '');
+			}
+
+			if (maxInputLength !== undefined && sanitizedRaw.length > maxInputLength)
+				sanitizedRaw = sanitizedRaw.slice(0, maxInputLength);
+
+			const invalidInsertion =
+				rawString === sanitizedRaw && workingRaw !== rawString;
+			if (invalidInsertion) {
+				nextCursorOffset = cursorOffset;
+				nextCursorWidth = 0;
+				return;
+			}
+
 			nextCursorOffset = Math.max(
 				0,
-				Math.min(nextCursorOffset, nextValueRaw.length),
+				Math.min(nextCursorOffset, sanitizedRaw.length),
 			);
 			setState({
 				cursorOffset: nextCursorOffset,
 				cursorWidth: nextCursorWidth,
 			});
 
-			if (type === 'number') {
-				nextValue = toValueType(nextValueRaw.replace(/[^0-9]/g, ''), type);
-			} else if (type === 'float') {
-				nextValue = toValueType(nextValueRaw.replace(/[^0-9.]/g, ''), type);
-				const parts = nextValueRaw.split('.');
-				if (parts.length > 2)
-					nextValue = toValueType(
-						parts[0] + '.' + parts.slice(1).join(''),
-						type,
-					);
-			} else if (type === 'character') {
-				nextValue = toValueType(nextValueRaw.replace(/[^a-z]/gi, ''), type);
-			}
-			if (maxInputLength !== undefined && nextValueRaw.length > maxInputLength)
-				nextValue = toValueType(nextValueRaw.slice(0, maxInputLength), type);
-
-			if (nextValue !== originalValue) {
-				const outputValue = toValueType(nextValueRaw, type);
-				onChange(outputValue);
-			}
+			const nextValue = toValueType(sanitizedRaw, type);
+			if (sanitizedRaw !== rawString) onChange(nextValue);
 		},
 		{isActive: focus},
 	);
@@ -260,7 +253,9 @@ export function UncontrolledTextInput<T extends InputType = 'string'>({
 
 function toValueType<T extends InputType>(raw: string, type: T): ValueType<T> {
 	if (type === 'number' || type === 'float') {
-		return (raw.trim() === '' ? null : Number(raw)) as ValueType<T>;
+		if (raw.trim() === '') return null as ValueType<T>;
+		const n = Number(raw);
+		return (Number.isNaN(n) ? null : n) as ValueType<T>;
 	}
 	return raw as ValueType<T>;
 }
