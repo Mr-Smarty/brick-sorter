@@ -58,6 +58,8 @@ Follow the steps below to install the project.
     npm run build
     ```
 
+    You may need to go into `node_modules/@rebrickableapi/types/endpoints.ts` and remove `SearchEndpointUrl` and `SearchParameters` to compile because of issues with the typescript `skipLibCheck` option.
+
 4. Install the CLI globally:
 
     ```
@@ -122,6 +124,8 @@ These instructions will cover a manual installation on Windows, given the numero
     ```
     npm run build
     ```
+
+    You may need to go into `node_modules/@rebrickableapi/types/endpoints.ts` and remove `SearchEndpointUrl` and `SearchParameters` to compile because of issues with the typescript `skipLibCheck` option.
 
 8. Install the CLI globally:
 
