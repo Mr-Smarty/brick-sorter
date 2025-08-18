@@ -29,7 +29,7 @@ This tool is made for you if you know which Lego sets you have, but their parts 
 
 ## Install
 
-You will need Node JS installed. If you run into issues, note the project was built with `v22.16.0`.
+You will need Node JS installed. If you run into issues, note the project was built with `v22.16.0`. Make sure your computer has been restarted since installing Node JS.
 
 ### Physical Webcam
 
@@ -64,7 +64,11 @@ Follow the steps below to install the project.
     npm install --global C:/path/to/brick-sorter
     ```
 
-    - Test by running `brick-sorter-cli`. If it can't find the command, run the install command above again in a new terminal outside the repository.
+    - Test by running `brick-sorter-cli`. If it can't find the command, run the install command above again in a new terminal outside the repository. If it still doesn't work, ensure `npm config prefix` is set correctly:
+        ```
+        npm config set prefix C:\Users\{username}\AppData\Roaming\npm
+        ```
+        NOTE: this may differ depending on your installation situation (if using nvm for example).
 
 ### OpenCV
 
@@ -125,7 +129,11 @@ These instructions will cover a manual installation on Windows, given the numero
     npm install --global C:/path/to/brick-sorter
     ```
 
-    - Test by running `brick-sorter-cli`. If it can't find the command, run the install command above again in a new terminal outside the repository.
+    - Test by running `brick-sorter-cli`. If it can't find the command, run the install command above again in a new terminal outside the repository. If it still doesn't work, ensure `npm config prefix` is set correctly:
+        ```
+        npm config set prefix C:\Users\{username}\AppData\Roaming\npm
+        ```
+        NOTE: this may differ depending on your installation situation (if using nvm for example).
 
 ## Using the CLI
 
@@ -138,6 +146,8 @@ $ brick-sorter-cli
 Options:
 
 `--dbPath` Optional path to SQLite database file
+
+This option is recommended to make sure the same database file is always used regardless of which directory the CLI is run from (See [SQLite Database](#sqlite-database) for more info).
 
 Examples
 
@@ -257,7 +267,7 @@ The app will attempt to correctly identify printed parts and parts with stickers
 
 ### SQLite Database
 
-All data is persistent in a SQLite database. By default, it is created and stored in a bricks.db file in the CLI project directory. This can be changed with the optional `--dbPath` CLI argument.
+All data is persistent in a SQLite database. By default, it is created and stored in a `bricks.db` file in the directory the app is run from. Always run the app from the same directory, or use the optional `--dbPath` CLI argument to use the same database file path every time.
 
 Editing the database is the only way to remove sets, and the best way to directly interact with the data.
 

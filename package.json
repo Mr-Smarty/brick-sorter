@@ -11,8 +11,8 @@
 		"build": "tsc",
 		"dev": "tsc --watch",
 		"test": "prettier --check . && xo && ava",
-		"install:physical": "npm install && npm install node-webcam",
-		"install:opencv": "npm install && npm install camera"
+		"install:physical": "npm install && npm install node-webcam --no-save",
+		"install:opencv": "npm install && npm install camera --no-save"
 	},
 	"files": [
 		"dist"
