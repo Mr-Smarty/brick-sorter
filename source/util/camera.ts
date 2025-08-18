@@ -2,6 +2,7 @@ import {config} from 'dotenv';
 config({path: new URL('../../.env', import.meta.url)});
 const CAMERA_TYPE = process.env['CAMERA_TYPE'];
 const CAMERA_INDEX = parseInt(process.env['CAMERA_INDEX'] || '');
+const CAPTURE_DELAY = parseInt(process.env['CAPTURE_DELAY'] || '0');
 
 let NodeWebcam: typeof import('node-webcam');
 let camera: typeof import('camera');
@@ -51,11 +52,11 @@ async function captureWithPhysical(): Promise<Buffer> {
 
 		function captureWithDevice() {
 			NodeWebcam.capture(
-				null,
+				'temp',
 				{
-					output: 'png',
+					delay: CAPTURE_DELAY,
 					callbackReturn: 'buffer',
-					device: device,
+					device,
 				},
 				(error: Error | null, data: string | Buffer) => {
 					if (error) {

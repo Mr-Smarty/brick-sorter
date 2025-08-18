@@ -67,10 +67,24 @@ Follow the steps below to install the project.
     ```
 
     - Test by running `brick-sorter-cli`. If it can't find the command, run the install command above again in a new terminal outside the repository. If it still doesn't work, ensure `npm config prefix` is set correctly:
+
         ```
         npm config set prefix C:\Users\{username}\AppData\Roaming\npm
         ```
+
         NOTE: this may differ depending on your installation situation (if using nvm for example).
+
+#### Using your phone camera (Windows 11)
+
+Through the Phone Link app, you can easily use your phone as a physical camera for your computer.
+
+1. With the devices already linked, open `Manage Cameras` in system settings.
+2. Select your phone.
+3. Go to `Advanced camera options`.
+4. Enable `Allow multiple apps to use camera at the same time`.
+5. Open the Windows camera app and use the `Change camera` button to start the connection and see your phone camera.
+6. Arrange the camera and CLI windows on screen (if you minimize the camera, it cuts the connection).
+7. Use the CLI as normal, no camera delay configuration required.
 
 ### OpenCV
 

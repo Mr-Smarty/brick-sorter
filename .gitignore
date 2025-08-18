@@ -2,3 +2,4 @@ node_modules
 dist
 bricks.db
 .env
+temp.jpg
