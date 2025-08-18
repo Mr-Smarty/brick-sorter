@@ -252,7 +252,7 @@ export default function SetEdit({
 
 		// Search for sets by number or name
 		const dbQuery = q.Set_bylike_number_or_name(query);
-		const results = db.prepare(dbQuery).all() as Set[];
+		const results = db.prepare(dbQuery).all() as unknown as Set[];
 		const exactMatch = results.find(
 			set => set.id === query || set.name.toLowerCase() === query.toLowerCase(),
 		);
@@ -278,7 +278,9 @@ export default function SetEdit({
 		).map(c => c.color_id);
 		setAvailableColors(colors);
 
-		const allParts = db.prepare(q.SetParts(set.id)).all() as SetPart[];
+		const allParts = db
+			.prepare(q.SetParts(set.id))
+			.all() as unknown as SetPart[];
 
 		let query: string;
 		if (sortMode === 'allocated' && allocatedOrder)
@@ -289,7 +291,7 @@ export default function SetEdit({
 			query = q.SetParts_sortby_partNum(set.id, partNumOrder);
 		else query = q.SetParts(set.id);
 
-		const sortedParts = db.prepare(query).all() as SetPart[];
+		const sortedParts = db.prepare(query).all() as unknown as SetPart[];
 		setPage.total(
 			page.size === 'all' ? 1 : Math.ceil(sortedParts.length / page.size),
 		);
@@ -315,7 +317,7 @@ export default function SetEdit({
 			const partKey = `${changedPart.part_num}:${changedPart.color_id}`;
 
 			const query = q.SetParts_sortby_allocated(selectedSet.id, allocatedOrder);
-			const sortedParts = db.prepare(query).all() as SetPart[];
+			const sortedParts = db.prepare(query).all() as unknown as SetPart[];
 
 			const absoluteIndex = sortedParts.findIndex(
 				part => `${part.part_num}:${part.color_id}` === partKey,

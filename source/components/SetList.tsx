@@ -46,7 +46,7 @@ export default function SetList({
 				query = `SELECT id, name, completion, priority FROM lego_sets ORDER BY ABS(completion) ${completionOrder}`;
 			else query = 'SELECT id, name, completion, priority FROM lego_sets';
 
-			const allSets = db.prepare(query).all() as Array<Set>;
+			const allSets = db.prepare(query).all() as unknown as Array<Set>;
 			setPage.total(
 				page.size === 'all' ? 1 : Math.ceil(allSets.length / page.size),
 			);
