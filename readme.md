@@ -6,6 +6,7 @@ This tool is made for you if you know which Lego sets you have, but their parts 
 
 -   [Install](#install)
     -   [Physical Webcam](#physical-webcam)
+        -   [Using your phone camera (Windows 11)](#using-your-phone-camera-windows-11)
     -   [OpenCV](#opencv)
 -   [Using the CLI](#using-the-cli)
     -   [Navigation and Controls](#navigation-and-controls)
