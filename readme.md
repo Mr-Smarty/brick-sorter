@@ -2,6 +2,31 @@
 
 This tool is made for you if you know which Lego sets you have, but their parts are all mixed. This tool allows you to add your sets, then sort your parts into their sets using a camera/webcam. It also functions as a part inventory.
 
+## Table of Contents
+
+-   [Install](#install)
+    -   [Physical Webcam](#physical-webcam)
+    -   [OpenCV](#opencv)
+-   [Using the CLI](#using-the-cli)
+    -   [Navigation and Controls](#navigation-and-controls)
+        -   [Scrollboxes](#scrollboxes)
+    -   [Tabs](#tabs)
+        -   [Dashboard](#dashboard)
+        -   [Sets](#sets)
+        -   [Set Edit](#set-edit)
+    -   [Adding Sets](#adding-sets)
+    -   [Adding Parts](#adding-parts)
+        -   [Use the dashboard](#use-the-dashboard)
+        -   [Use Set Edit](#use-set-edit)
+-   [Features](#features)
+    -   [Priority](#priority)
+    -   [Soft Completion](#soft-completion)
+    -   [Tuneable Vision Recognition](#tuneable-vision-recognition)
+    -   [Part Recognition Logic](#part-recognition-logic)
+        -   [Decorated Parts](#decorated-parts)
+    -   [SQLite Database](#sqlite-database)
+        -   [Schema](#schema)
+
 ## Install
 
 You will need Node JS installed. If you run into issues, note the project was built with `v22.16.0`.
@@ -180,6 +205,7 @@ Sets must be added before adding parts that belong to them. Add a set from the d
 
 -   Use `spacebar` to capture from camera and autofill part number and color after confirming.
 -   Manually enter info. Either part number and color **OR** element ID is required.
+-   Fill in the set number in addition to part info to add a part directly to a certain set. (Useful if you are trying to complete a specific set or have parts decorated with set specific stickers).
 
 Use `ctrl`+`o` at any time to preview your part/color choice.
 
@@ -221,13 +247,19 @@ The application decides which part you are capturing using thresholds. The defau
 
     (For example match 1 (87%) and match 2 (91%) are within 5% (or 0.05) so another check will be made).
 
-### Part addition logic
+### Part Recognition Logic
 
 The Lego part numbering scheme is very complex, and no single website/database does it the exact same. This application works for most parts, but there may be occasional edge cases. Parts are primarily added by part number and color, and with various other IDs as a backup. This means a newer part version may replace an older one if they are functionally identical and the same color. If a part is not being recognized, double check the IDs you are using exist in the Set Edit parts list, or looks for additional part information on [rebrickable](https://rebrickable.com/home/).
+
+#### Decorated Parts
+
+The app will attempt to correctly identify printed parts and parts with stickers, and add them directly to respective sets. For the best chance, make sure to capture a view of the part with the sticker/print clearly visible. Ensure the part is added to a specific set if it contains a set-specific sticker. If in doubt, use `ctrl`+`o` to preview the part to add and double check part/set info with rebrickable.
 
 ### SQLite Database
 
 All data is persistent in a SQLite database. By default, it is created and stored in a bricks.db file in the CLI project directory. This can be changed with the optional `--dbPath` CLI argument.
+
+Editing the database is the only way to remove sets, and the best way to directly interact with the data.
 
 #### Schema
 
