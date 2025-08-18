@@ -86,6 +86,8 @@ Through the Phone Link app, you can easily use your phone as a physical camera f
 6. Arrange the camera and CLI windows on screen (if you minimize the camera, it cuts the connection).
 7. Use the CLI as normal, no camera delay configuration required.
 
+![phone on windows](media/phonewindows.png)
+
 ### OpenCV
 
 Follow these instructions to use OpenCV for your camera. This makes it possible to use DirectShow devices such as the OBS Virtual Camera.
