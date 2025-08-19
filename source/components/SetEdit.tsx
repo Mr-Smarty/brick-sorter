@@ -101,6 +101,15 @@ export default function SetEdit({
 		page.size,
 	]);
 
+	useEffect(() => {
+		if (!selectedSet) return;
+		const row = db
+			.prepare('SELECT completion FROM lego_sets WHERE id = ?')
+			.get(selectedSet.id) as {completion: number} | undefined;
+		if (row && row.completion !== selectedSet.completion)
+			setSelectedSet({...selectedSet, completion: row.completion});
+	}, [isFocused.completion, selectedSet, db]);
+
 	const resetSort = () => {
 		setSortMode('color');
 		setColorFilter(undefined);
@@ -162,13 +171,14 @@ export default function SetEdit({
 						else if (isFocused.partList && parts)
 							setFocusedPart(prev => (prev > 0 ? prev - 1 : 0));
 					} else if (key.return) {
-						if (isFocused.completion)
-							setSelectedSet(
-								updateSet(db, selectedSet!, {
-									setComplete: selectedSet!.completion >= 0,
-								}),
-							);
-						else if (isFocused.partList) {
+						if (isFocused.completion && selectedSet) {
+							const setComplete = selectedSet.completion !== -1;
+							const updated = updateSet(db, selectedSet, {
+								setComplete,
+							});
+							setSelectedSet(updated);
+							setStatus('successfully updated set completion');
+						} else if (isFocused.partList) {
 							if (sortMode === 'allocated') setAllocatedOrder(cycleSortOrder);
 							else if (sortMode === 'color') setShowColorPicker(true);
 							else setPartNumOrder(cycleSortOrder);
@@ -304,14 +314,19 @@ export default function SetEdit({
 		setAllParts(allParts);
 		setSearchResults([]);
 		setUiState('edit');
-		setStatus('');
 	};
 
 	const updateSetCompletionAndResort = (changedPart: SetPart) => {
 		if (!selectedSet) return;
 
-		const newCompletion = updateSetCompletion(db, selectedSet.id);
-		setSelectedSet({...selectedSet, completion: newCompletion});
+		let newCompletion = selectedSet.completion;
+		if (selectedSet.completion !== -1) {
+			const absCompletion = updateSetCompletion(db, selectedSet.id);
+			newCompletion = absCompletion;
+			if (newCompletion !== selectedSet.completion) {
+				setSelectedSet({...selectedSet, completion: newCompletion});
+			}
+		}
 
 		if (sortMode === 'allocated') {
 			const partKey = `${changedPart.part_num}:${changedPart.color_id}`;
@@ -402,7 +417,6 @@ export default function SetEdit({
 									</Text> Priority:{' '}
 								</Text>
 								<UncontrolledFocusableTextInput
-									key={selectedSet.priority}
 									placeholder={`${selectedSet.priority}`}
 									initialValue={selectedSet.priority}
 									type="number"
@@ -412,6 +426,8 @@ export default function SetEdit({
 												priority: value || undefined,
 											}),
 										);
+										setStatus('successfully updated set priority');
+										focus('priority2');
 									}}
 									focusKey="priority2"
 									isActive={isActive && uiState === 'edit'}
@@ -442,7 +458,7 @@ export default function SetEdit({
 									inverse={isFocused.completion}
 								>
 									{formatPercentage(Math.abs(selectedSet.completion))}
-									{selectedSet.completion < 0 ? '*' : ' '}
+									{selectedSet.completion === -1 ? '*' : ' '}
 								</Text>
 							</Box>
 						</Box>
@@ -561,6 +577,7 @@ export default function SetEdit({
 									if (value === 'all') setColorFilter(undefined);
 									else setColorFilter(value as number);
 									setShowColorPicker(false);
+									setPage.current(1);
 								}}
 							/>
 						</Box>
@@ -735,7 +752,11 @@ export default function SetEdit({
 			)}
 
 			{/* Error Status */}
-			{status && <Text color="red">{status}</Text>}
+			{status && (
+				<Text color={status.includes('success') ? 'green' : 'red'}>
+					{status}
+				</Text>
+			)}
 		</Box>
 	);
 }
